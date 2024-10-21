@@ -34,11 +34,11 @@ typedef struct {
 
 } cpu6502;
 
-void cInit(struct cpu6502* cpu);
+void cInit();
 
-void cDestroy(struct cpu6502* cpu);
+void cDestroy();
 
-void connectBus(struct cpu6502* cpu, struct bus* b);
+void connectBus(bus* b);
 
 void clock(); // Clock function for clock cycles to occur
 void reset(); // Reset Signal
@@ -48,16 +48,16 @@ void nmi(); // Non-Maskable Interrupt Request Signal
 uint8_t fetchData(); // Fetches data from memory
 
 // write to memory through bus
-uint8_t cRead(cpu6502_2* cpu, uint16_t addr);
+uint8_t cRead(uint16_t addr);
 
 // read from memory through bus
-void cWrite(cpu6502_2* cpu, uint16_t addr, uint8_t val);
+void cWrite(uint16_t addr, uint8_t val);
 
 // get flag from status register
-uint8_t getFlag(cpu6502_2* cpu, CPUFLAGS flag);
+uint8_t getFlag(CPUFLAGS flag);
 
 // set flag in status register
-void setFlag(cpu6502_2* cpu, CPUFLAGS flag, int val);
+void setFlag(CPUFLAGS flag, int val);
 
 typedef struct
 {
@@ -67,8 +67,6 @@ typedef struct
     uint8_t cycles; // Number of cycles the instruction requires
 } instruction;
 
-// Lookup table for instructions in C
-instruction instructions[256];
 
 // Addressing Modes
 uint8_t IMP();
