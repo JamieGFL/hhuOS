@@ -2,20 +2,17 @@
 #include <cstdint>
 #include "cpu6502.h"
 
-struct bus {
+typedef struct {
     // Components
-    struct cpu6502 cpu;
+    cpu6502 cpu;
 
     // Fake RAM (64KB)
     uint8_t ram[64 * 1024];
-
-    uint8_t (*bRead)(struct bus* b, uint16_t addr, int readOnly);
-    void (*bWrite)(struct bus* b, uint16_t addr, uint8_t val);
-};
+} bus;
 
 // Write to memory
-void bWrite(struct bus* b, uint16_t addr, uint8_t val);
+void bWrite(bus* b, uint16_t addr, uint8_t val);
 
 // Read from memory
-uint8_t bRead(struct bus* b, uint16_t addr, int readOnly);
+uint8_t bRead(bus* b, uint16_t addr, int readOnly);
 
