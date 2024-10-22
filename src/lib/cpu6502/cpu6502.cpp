@@ -55,6 +55,164 @@ void cWrite(uint16_t addr, uint8_t val) {
     cpu.bus.bWrite(cpu.bus, addr, val);
 }
 
+uint8_t getFlag(CPUFLAGS flag) {
+    return (cpu.status & flag) > 0; // if stuff doesn't work, do ? 1 : 0 here
+}
+
+void setFlag(CPUFLAGS flag, int val) {
+    if (val) {
+        cpu.status |= flag;
+    } else {
+        cpu.status &= ~flag;
+    }
+}
+
 void connectBus(bus* b) {
     cpu.bus = b;
+}
+
+void clock() {
+    if (cpu.cycles == 0) {
+        cpu.opcode = cRead(cpu.PC);
+        cpu.PC++;
+        cpu.cycles = lookupTable[cpu.opcode].cycles;
+
+        uint8_t extraCycles1 = lookupTable[cpu.opcode].addressmode();
+        uint8_t extraCycles2 = lookupTable[cpu.opcode].operation();
+
+        cpu.cycles += (extraCycles1 & extraCycles2);
+    }
+
+    cpu.cycles--;
+}
+
+// Addressing Modes
+uint8_t IMP() {
+    cpu.fetched = cpu.A;
+    return 0;
+}
+
+uint8_t IMM() {
+    cpu.addr_abs = cpu.PC++;
+    return 0;
+}
+
+uint8_t ZP0() {
+    cpu.addr_abs = cRead(cpu.PC);
+    cpu.PC++;
+    cpu.addr_abs &= 0x00FF;
+    return 0;
+}
+
+uint8_t ZPX() {
+    cpu.addr_abs = (cRead(cpu.PC) + cpu.X);
+    cpu.PC++;
+    cpu.addr_abs &= 0x00FF;
+    return 0;
+}
+
+uint8_t ZPY() {
+    cpu.addr_abs = (cRead(cpu.PC) + cpu.Y);
+    cpu.PC++;
+    cpu.addr_abs &= 0x00FF;
+    return 0;
+}
+
+uint8_t ABS() {
+    uint16_t lowByte = cRead(cpu.PC);
+    cpu.PC++;
+    uint16_t highByte = cRead(cpu.PC);
+    cpu.PC++;
+
+    cpu.addr_abs = (highByte << 8) | lowByte;
+    return 0;
+}
+
+uint8_t ABX() {
+    uint16_t lowByte = cRead(cpu.PC);
+    cpu.PC++;
+    uint16_t highByte = cRead(cpu.PC);
+    cpu.PC++;
+
+    cpu.addr_abs = (highByte << 8) | lowByte;
+    cpu.addr_abs += cpu.X;
+
+    if ((cpu.addr_abs & 0xFF00) != (highByte << 8)) {
+        return 1;
+    } else {
+        return 0;
+    }
+}
+
+uint8_t ABY() {
+    uint16_t lowByte = cRead(cpu.PC);
+    cpu.PC++;
+    uint16_t highByte = cRead(cpu.PC);
+    cpu.PC++;
+
+    cpu.addr_abs = (highByte << 8) | lowByte;
+    cpu.addr_abs += cpu.Y;
+
+    if ((cpu.addr_abs & 0xFF00) != (highByte << 8)) {
+        return 1;
+    } else {
+        return 0;
+    }
+}
+
+uint8_t IND() {
+    uint16_t ptr_lowByte = cRead(cpu.PC);
+    cpu.PC++;
+    uint16_t ptr_highByte = cRead(cpu.PC);
+    cpu.PC++;
+
+    uint16_t ptr = (ptr_highByte << 8) | ptr_lowByte;
+
+    // page boundary hardware bug implementation
+    if (ptr_lowByte == 0x00FF) {
+        cpu.addr_abs = (cRead(ptr & 0xFF00) << 8) | cRead(ptr);
+    } else {
+        cpu.addr_abs = (cRead(ptr + 1) << 8) | cRead(ptr);
+    }
+
+    return 0;
+}
+
+// 8-bit address offset by X register used read from page 0x00, reading the actual 16-bit address from that address
+uint8_t IZX() {
+    uint16_t base_addr = cRead(cpu.PC);
+    cpu.PC++;
+
+    uint16_t lowByte = cRead((uint16_t)(base_addr + (uint16_t)cpu.X) & 0x00FF);
+    uint16_t highByte = cRead((uint16_t)(base_addr + (uint16_t)cpu.X + 1) & 0x00FF);
+
+    cpu.addr_abs = (highByte << 8) | lowByte;
+
+    return 0;
+}
+
+uint8_t IZY() {
+    uint16_t base_addr = cRead(cpu.PC);
+    cpu.PC++;
+
+    uint16_t lowByte = cRead(base_addr & 0x00FF);
+    uint16_t highByte = cRead((base_addr + 1) & 0x00FF);
+
+    cpu.addr_abs = (highByte << 8) | lowByte;
+    cpu.addr_abs += cpu.Y;
+
+    if ((cpu.addr_abs & 0xFF00) != (highByte << 8)) {
+        return 1;
+    } else {
+        return 0;
+    }
+}
+
+uint8_t REL() {
+    cpu.addr_rel = cRead(cpu.PC);
+    cpu.PC++;
+    if (cpu.addr_rel & 0x80) {
+        cpu.addr_rel |= 0xFF00;
+    }
+    return 0;
 }
