@@ -216,3 +216,242 @@ uint8_t REL() {
     }
     return 0;
 }
+
+// Instructions
+
+uint8_t fetchData() {
+    if (!(lookupTable[cpu.opcode].addressmode == IMP)) {
+        cpu.fetched = cRead(cpu.addr_abs);
+    }
+    return cpu.fetched;
+}
+
+// Arithmetic
+
+// ----------------------------------
+
+// Add with carry, flags are set based on the result
+// Overflow flag is set with formula > V = ~(A ^ M) & (A ^ R)
+
+uint8_t ADC() {
+    fetchData();
+    uint16_t result = (uint16_t)cpu.A + (uint16_t)cpu.fetched + (uint16_t)getFlag(C_FLAG);
+
+    setFlag(C_FLAG, result > 255);
+    setFlag(Z_FLAG, (result & 0x00FF) == 0);
+    setFlag(N_FLAG, result & 0x80);
+    setFlag(V_FLAG, (~(uint16_t)cpu.A ^ (uint16_t)cpu.fetched) & ((uint16_t)cpu.A ^ result) & 0x0080);
+
+    cpu.A = result & 0x00FF;
+    return 1;
+}
+
+// 2 complement is used on the value to be subtracted and the carry flag is used to indicate a borrow
+// otherwise, very similar to ADC
+
+uint8_t SBC() {
+    fetchData();
+    uint16_t inverted = ((uint16_t)cpu.fetched) ^ 0x00FF;
+    uint16_t result = (uint16_t)cpu.A + inverted + (uint16_t)getFlag(C_FLAG);
+
+    setFlag(C_FLAG, result & 0xFF00);
+    setFlag(Z_FLAG, (result & 0x00FF) == 0);
+    setFlag(N_FLAG, result & 0x80);
+    setFlag(V_FLAG, (result ^ (uint16_t)cpu.A) & (result ^ inverted) & 0x0080);
+
+    cpu.A = result & 0x00FF;
+    return 1;
+}
+
+// Bit Instructions
+
+// ----------------------------------
+
+// Clear the carry bit
+uint8_t CLC() {
+    setFlag(C_FLAG, 0);
+    return 0;
+}
+
+// Set the carry bit
+
+uint8_t SEC() {
+    setFlag(C_FLAG, 1);
+    return 0;
+}
+
+// Clear the interrupt disable bit
+
+uint8_t CLI() {
+    setFlag(I_FLAG, 0);
+    return 0;
+}
+
+// Set the interrupt disable bit
+
+uint8_t SEI() {
+    setFlag(I_FLAG, 1);
+    return 0;
+}
+
+// Clear the overflow bit
+
+uint8_t CLV() {
+    setFlag(V_FLAG, 0);
+    return 0;
+}
+
+// Clear the decimal mode bit
+
+uint8_t CLD() {
+    setFlag(D_FLAG, 0);
+    return 0;
+}
+
+// Set the decimal mode bit
+
+uint8_t SED() {
+    setFlag(D_FLAG, 1);
+    return 0;
+}
+
+
+// Branch Instructions based on flags
+
+// ----------------------------------
+
+// Branch if carry clear
+
+uint8_t BCC() {
+    if (getFlag(C_FLAG) == 0) {
+        cpu.cycles++;
+        cpu.addr_abs = cpu.PC + cpu.addr_rel;
+
+        if ((cpu.addr_abs & 0xFF00) != (cpu.PC & 0xFF00)) {
+            cpu.cycles++;
+        }
+
+        cpu.PC = cpu.addr_abs;
+    }
+    return 0;
+}
+
+// Branch if carry set
+
+uint8_t BCS() {
+    if (getFlag(C_FLAG) == 1) {
+        cpu.cycles++;
+        cpu.addr_abs = cpu.PC + cpu.addr_rel;
+
+        if ((cpu.addr_abs & 0xFF00) != (cpu.PC & 0xFF00)) {
+            cpu.cycles++;
+        }
+
+        cpu.PC = cpu.addr_abs;
+    }
+    return 0;
+}
+
+// Branch if equal
+
+uint8_t BEQ() {
+    if (getFlag(Z_FLAG) == 1) {
+        cpu.cycles++;
+        cpu.addr_abs = cpu.PC + cpu.addr_rel;
+
+        if ((cpu.addr_abs & 0xFF00) != (cpu.PC & 0xFF00)) {
+            cpu.cycles++;
+        }
+
+        cpu.PC = cpu.addr_abs;
+    }
+    return 0;
+}
+
+// Branch if not equal
+
+uint8_t BNE() {
+    if (getFlag(Z_FLAG) == 0) {
+        cpu.cycles++;
+        cpu.addr_abs = cpu.PC + cpu.addr_rel;
+
+        if ((cpu.addr_abs & 0xFF00) != (cpu.PC & 0xFF00)) {
+            cpu.cycles++;
+        }
+
+        cpu.PC = cpu.addr_abs;
+    }
+    return 0;
+}
+
+// Branch if negative
+
+uint8_t BMI() {
+    if (getFlag(N_FLAG) == 1) {
+        cpu.cycles++;
+        cpu.addr_abs = cpu.PC + cpu.addr_rel;
+
+        if ((cpu.addr_abs & 0xFF00) != (cpu.PC & 0xFF00)) {
+            cpu.cycles++;
+        }
+
+        cpu.PC = cpu.addr_abs;
+    }
+    return 0;
+}
+
+// Branch if positive
+
+uint8_t BPL() {
+    if (getFlag(N_FLAG) == 0) {
+        cpu.cycles++;
+        cpu.addr_abs = cpu.PC + cpu.addr_rel;
+
+        if ((cpu.addr_abs & 0xFF00) != (cpu.PC & 0xFF00)) {
+            cpu.cycles++;
+        }
+
+        cpu.PC = cpu.addr_abs;
+    }
+    return 0;
+}
+
+// Branch if overflow clear
+
+uint8_t BVC() {
+    if (getFlag(V_FLAG) == 0) {
+        cpu.cycles++;
+        cpu.addr_abs = cpu.PC + cpu.addr_rel;
+
+        if ((cpu.addr_abs & 0xFF00) != (cpu.PC & 0xFF00)) {
+            cpu.cycles++;
+        }
+
+        cpu.PC = cpu.addr_abs;
+    }
+    return 0;
+}
+
+// Branch if overflow set
+
+uint8_t BVS() {
+    if (getFlag(V_FLAG) == 1) {
+        cpu.cycles++;
+        cpu.addr_abs = cpu.PC + cpu.addr_rel;
+
+        if ((cpu.addr_abs & 0xFF00) != (cpu.PC & 0xFF00)) {
+            cpu.cycles++;
+        }
+
+        cpu.PC = cpu.addr_abs;
+    }
+    return 0;
+}
+
+uint8_t AND() {
+    fetchData();
+    cpu.A = cpu.A & cpu.fetched;
+    setFlag(Z_FLAG, cpu.A == 0x00);
+    setFlag(N_FLAG, cpu.A & 0x80);
+    return 1;
+}
