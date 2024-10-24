@@ -86,7 +86,72 @@ void clock() {
     cpu.cycles--;
 }
 
+void reset() {
+    cpu.A = 0;
+    cpu.X = 0;
+    cpu.Y = 0;
+    cpu.SP = 0xFD; //
+    cpu.status = 0x00 | (1 << U_FLAG);
+
+    cpu.addr_abs = 0xFFFC;
+    uint16_t lowByte = cRead(cpu.addr_abs);
+    uint16_t highByte = cRead(cpu.addr_abs + 1);
+
+    cpu.PC = (highByte << 8) | lowByte;
+
+    cpu.addr_rel = 0x0000;
+    cpu.addr_abs = 0x0000;
+    cpu.fetched = 0x00;
+
+    cpu.cycles = 8;
+}
+
+void irq() {
+    if (getFlag(I_FLAG) == 0) {
+        cWrite(0x0100 + cpu.SP, (cpu.PC >> 8) & 0x00FF);
+        cpu.SP--;
+        cWrite(0x0100 + cpu.SP, cpu.PC & 0x00FF);
+        cpu.SP--;
+
+        setFlag(B_FLAG, 0);
+        setFlag(U_FLAG, 1);
+        setFlag(I_FLAG, 1);
+        cWrite(0x0100 + cpu.SP, cpu.status);
+        cpu.SP--;
+
+        cpu.addr_abs = 0xFFFE;
+        uint16_t lowByte = cRead(cpu.addr_abs);
+        uint16_t highByte = cRead(cpu.addr_abs + 1);
+
+        cpu.PC = (highByte << 8) | lowByte;
+
+        cpu.cycles = 7;
+    }
+}
+
+void nmi() {
+    cWrite(0x0100 + cpu.SP, (cpu.PC >> 8) & 0x00FF);
+    cpu.SP--;
+    cWrite(0x0100 + cpu.SP, cpu.PC & 0x00FF);
+    cpu.SP--;
+
+    setFlag(B_FLAG, 0);
+    setFlag(U_FLAG, 1);
+    setFlag(I_FLAG, 1);
+    cWrite(0x0100 + cpu.SP, cpu.status);
+    cpu.SP--;
+
+    cpu.addr_abs = 0xFFFA;
+    uint16_t lowByte = cRead(cpu.addr_abs);
+    uint16_t highByte = cRead(cpu.addr_abs + 1);
+
+    cpu.PC = (highByte << 8) | lowByte;
+
+    cpu.cycles = 8;
+}
+
 // Addressing Modes
+
 uint8_t IMP() {
     cpu.fetched = cpu.A;
     return 0;
@@ -179,6 +244,7 @@ uint8_t IND() {
 }
 
 // 8-bit address offset by X register used read from page 0x00, reading the actual 16-bit address from that address
+
 uint8_t IZX() {
     uint16_t base_addr = cRead(cpu.PC);
     cpu.PC++;
@@ -256,16 +322,221 @@ uint8_t SBC() {
 
     setFlag(C_FLAG, result & 0xFF00);
     setFlag(Z_FLAG, (result & 0x00FF) == 0);
-    setFlag(N_FLAG, result & 0x80);
+    setFlag(N_FLAG, result & 0x0080);
     setFlag(V_FLAG, (result ^ (uint16_t)cpu.A) & (result ^ inverted) & 0x0080);
 
     cpu.A = result & 0x00FF;
     return 1;
 }
 
+// Bitwise AND
+
+uint8_t AND() {
+    fetchData();
+    cpu.A = cpu.A & cpu.fetched;
+    setFlag(Z_FLAG, cpu.A == 0x00);
+    setFlag(N_FLAG, cpu.A & 0x80);
+    return 1;
+}
+
+// Bitwise OR
+
+uint8_t ORA() {
+    fetchData();
+    cpu.A = cpu.A | cpu.fetched;
+    setFlag(Z_FLAG, cpu.A == 0x00);
+    setFlag(N_FLAG, cpu.A & 0x80);
+    return 1;
+}
+
+// Bitwise XOR
+
+uint8_t EOR() {
+    fetchData();
+    cpu.A = cpu.A ^ cpu.fetched;
+    setFlag(Z_FLAG, cpu.A == 0x00);
+    setFlag(N_FLAG, cpu.A & 0x80);
+    return 1;
+}
+
+// Shift left
+
+uint8_t ASL() {
+    fetchData();
+    uint16_t result = (uint16_t)cpu.fetched << 1;
+    setFlag(C_FLAG, result & 0xFF00);
+    setFlag(Z_FLAG, (result & 0x00FF) == 0);
+    setFlag(N_FLAG, result & 0x80);
+
+    if (lookupTable[cpu.opcode].addressmode == IMP) {
+        cpu.A = result & 0x00FF;
+    } else {
+        cWrite(cpu.addr_abs, result & 0x00FF);
+    }
+
+    return 0;
+}
+
+// Shift right
+
+uint8_t LSR() {
+    fetchData();
+    setFlag(C_FLAG, cpu.fetched & 0x0001);
+    uint16_t result = cpu.fetched >> 1;
+    setFlag(Z_FLAG, (result & 0x00FF) == 0);
+    setFlag(N_FLAG, result & 0x0080);
+
+    if (lookupTable[cpu.opcode].addressmode == IMP) {
+        cpu.A = result & 0x00FF;
+    } else {
+        cWrite(cpu.addr_abs, result & 0x00FF);
+    }
+
+    return 0;
+}
+
+// Rotate left
+
+uint8_t ROL() {
+    fetchData();
+    uint16_t result = (uint16_t)cpu.fetched << 1 | getFlag(C_FLAG);
+    setFlag(C_FLAG, result & 0xFF00);
+    setFlag(Z_FLAG, (result & 0x00FF) == 0);
+    setFlag(N_FLAG, result & 0x0080);
+
+    if (lookupTable[cpu.opcode].addressmode == IMP) {
+        cpu.A = result & 0x00FF;
+    } else {
+        cWrite(cpu.addr_abs, result & 0x00FF);
+    }
+
+    return 0;
+}
+
+// Rotate right
+
+uint8_t ROR() {
+    fetchData();
+    uint16_t result = (uint16_t)cpu.fetched >> 1 | (getFlag(C_FLAG) << 7);
+    setFlag(C_FLAG, cpu.fetched & 0x01);
+    setFlag(Z_FLAG, (result & 0x00FF) == 0);
+    setFlag(N_FLAG, result & 0x0080);
+
+    if (lookupTable[cpu.opcode].addressmode == IMP) {
+        cpu.A = result & 0x00FF;
+    } else {
+        cWrite(cpu.addr_abs, result & 0x00FF);
+    }
+
+    return 0;
+}
+
+// Increment value
+
+uint8_t INC() {
+    fetchData();
+    uint16_t result = cpu.fetched + 1;
+    cWrite(cpu.addr_abs, result & 0x00FF);
+    setFlag(Z_FLAG, (result & 0x00FF) == 0);
+    setFlag(N_FLAG, result & 0x0080);
+    return 0;
+}
+
+// Increment X register
+
+uint8_t INX() {
+    cpu.X++;
+    setFlag(Z_FLAG, cpu.X == 0x00);
+    setFlag(N_FLAG, cpu.X & 0x80);
+    return 0;
+}
+
+// Increment Y register
+
+uint8_t INY() {
+    cpu.Y++;
+    setFlag(Z_FLAG, cpu.Y == 0x00);
+    setFlag(N_FLAG, cpu.Y & 0x80);
+    return 0;
+}
+
+// Decrement value
+
+uint8_t DEC() {
+    fetchData();
+    uint16_t result = cpu.fetched - 1;
+    cWrite(cpu.addr_abs, result & 0x00FF);
+    setFlag(Z_FLAG, (result & 0x00FF) == 0);
+    setFlag(N_FLAG, result & 0x0080);
+    return 0;
+}
+
+// Decrement X register
+
+uint8_t DEX() {
+    cpu.X--;
+    setFlag(Z_FLAG, cpu.X == 0x00);
+    setFlag(N_FLAG, cpu.X & 0x80);
+    return 0;
+}
+
+// Decrement Y register
+
+uint8_t DEY() {
+    cpu.Y--;
+    setFlag(Z_FLAG, cpu.Y == 0x00);
+    setFlag(N_FLAG, cpu.Y & 0x80);
+    return 0;
+}
+
+// Compare
+
+uint8_t CMP() {
+    fetchData();
+    uint16_t result = (uint16_t)cpu.A - (uint16_t)cpu.fetched;
+    setFlag(C_FLAG, cpu.A >= cpu.fetched);
+    setFlag(Z_FLAG, (result & 0x00FF) == 0);
+    setFlag(N_FLAG, result & 0x0080);
+    return 1;
+}
+
+// Compare X register
+
+uint8_t CPX() {
+    fetchData();
+    uint16_t result = (uint16_t)cpu.X - (uint16_t)cpu.fetched;
+    setFlag(C_FLAG, cpu.X >= cpu.fetched);
+    setFlag(Z_FLAG, (result & 0x00FF) == 0);
+    setFlag(N_FLAG, result & 0x0080);
+    return 0;
+}
+
+// Compare Y register
+
+uint8_t CPY() {
+    fetchData();
+    uint16_t result = (uint16_t)cpu.Y - (uint16_t)cpu.fetched;
+    setFlag(C_FLAG, cpu.Y >= cpu.fetched);
+    setFlag(Z_FLAG, (result & 0x00FF) == 0);
+    setFlag(N_FLAG, result & 0x0080);
+    return 0;
+}
+
+
+
 // Bit Instructions
 
 // ----------------------------------
+
+// Test bits in memory with accumulator
+uint8_t BIT() {
+    fetchData();
+    uint16_t result = cpu.A & cpu.fetched;
+    setFlag(Z_FLAG, (result & 0x00FF) == 0);
+    setFlag(N_FLAG, cpu.fetched & (1 << 7));
+    setFlag(V_FLAG, cpu.fetched & (1 << 6));
+    return 0;
+}
 
 // Clear the carry bit
 uint8_t CLC() {
@@ -448,10 +719,231 @@ uint8_t BVS() {
     return 0;
 }
 
-uint8_t AND() {
+// Stack Instructions
+
+// ----------------------------------
+
+// Push the accumulator to the stack
+
+uint8_t PHA() {
+    cWrite(0x0100 + cpu.SP, cpu.A); // Stack is located at 0x0100
+    cpu.SP--;
+    return 0;
+}
+
+// Pop the accumulator from the stack
+
+uint8_t PLA() {
+    cpu.SP++;
+    cpu.A = cRead(0x0100 + cpu.SP);
+    setFlag(Z_FLAG, cpu.A == 0x00);
+    setFlag(N_FLAG, cpu.A & 0x80);
+    return 0;
+}
+
+// Push the status register to the stack
+
+uint8_t PHP() {
+    cWrite(0x0100 + cpu.SP, cpu.status);
+    cpu.SP--;
+    return 0;
+}
+
+// Pop the status register from the stack
+
+uint8_t PLP() {
+    cpu.SP++;
+    cpu.status = cRead(0x0100 + cpu.SP);
+    setFlag(U_FLAG, 1);
+    return 0;
+}
+
+// Return from interrupt
+
+uint8_t RTI() {
+    cpu.SP++;
+    cpu.status = cRead(0x0100 + cpu.SP);
+    cpu.status &= ~B_FLAG;
+    cpu.status &= ~U_FLAG;
+
+    cpu.SP++;
+    cpu.PC = (uint16_t)cRead(0x0100 + cpu.SP);
+    cpu.SP++;
+    cpu.PC |= (uint16_t)cRead(0x0100 + cpu.SP) << 8;
+
+    return 0;
+}
+
+// Return from subroutine
+
+uint8_t RTS() {
+    cpu.SP++;
+    cpu.PC = (uint16_t)cRead(0x0100 + cpu.SP);
+    cpu.SP++;
+    cpu.PC |= (uint16_t)cRead(0x0100 + cpu.SP) << 8;
+
+    cpu.PC++;
+    return 0;
+}
+
+// Jump to subroutine
+
+uint8_t JSR() {
+    cpu.PC--;
+
+    cWrite(0x0100 + cpu.SP, (cpu.PC >> 8) & 0x00FF);
+    cpu.SP--;
+    cWrite(0x0100 + cpu.SP, cpu.PC & 0x00FF);
+    cpu.SP--;
+
+    cpu.PC = cpu.addr_abs;
+    return 0;
+}
+
+// Jump
+
+uint8_t JMP() {
+    cpu.PC = cpu.addr_abs;
+    return 0;
+}
+
+// Break
+
+uint8_t BRK() {
+    cpu.PC++;
+
+    setFlag(I_FLAG, 1);
+    cWrite(0x0100 + cpu.SP, (cpu.PC >> 8) & 0x00FF);
+    cpu.SP--;
+    cWrite(0x0100 + cpu.SP, cpu.PC & 0x00FF);
+    cpu.SP--;
+
+    setFlag(B_FLAG, 1);
+    cWrite(0x0100 + cpu.SP, cpu.status);
+    cpu.SP--;
+    setFlag(B_FLAG, 0);
+
+    cpu.PC = (uint16_t)cRead(0xFFFE) | ((uint16_t)cRead(0xFFFF) << 8);
+
+    return 0;
+}
+
+// System Instructions
+
+// ----------------------------------
+
+// No operation
+
+uint8_t NOP() {
+
+    // NOPs for unofficial opcodes could be added here
+
+    return 0;
+}
+
+// Transfer Instructions
+
+// ----------------------------------
+
+// Load the accumulator with a value
+
+uint8_t LDA() {
     fetchData();
-    cpu.A = cpu.A & cpu.fetched;
+    cpu.A = cpu.fetched;
     setFlag(Z_FLAG, cpu.A == 0x00);
     setFlag(N_FLAG, cpu.A & 0x80);
     return 1;
+}
+
+// Load the X register with a value
+
+uint8_t LDX() {
+    fetchData();
+    cpu.X = cpu.fetched;
+    setFlag(Z_FLAG, cpu.X == 0x00);
+    setFlag(N_FLAG, cpu.X & 0x80);
+    return 1;
+}
+
+// Load the Y register with a value
+
+uint8_t LDY() {
+    fetchData();
+    cpu.Y = cpu.fetched;
+    setFlag(Z_FLAG, cpu.Y == 0x00);
+    setFlag(N_FLAG, cpu.Y & 0x80);
+    return 1;
+}
+
+// Transfer the accumulator to the X register
+
+uint8_t TAX() {
+    cpu.X = cpu.A;
+    setFlag(Z_FLAG, cpu.X == 0x00);
+    setFlag(N_FLAG, cpu.X & 0x80);
+    return 0;
+}
+
+// Transfer the accumulator to the Y register
+
+uint8_t TAY() {
+    cpu.Y = cpu.A;
+    setFlag(Z_FLAG, cpu.Y == 0x00);
+    setFlag(N_FLAG, cpu.Y & 0x80);
+    return 0;
+}
+
+// Transfer the X register to the accumulator
+
+uint8_t TXA() {
+    cpu.A = cpu.X;
+    setFlag(Z_FLAG, cpu.A == 0x00);
+    setFlag(N_FLAG, cpu.A & 0x80);
+    return 0;
+}
+
+// Transfer the Y register to the accumulator
+
+uint8_t TYA() {
+    cpu.A = cpu.Y;
+    setFlag(Z_FLAG, cpu.A == 0x00);
+    setFlag(N_FLAG, cpu.A & 0x80);
+    return 0;
+}
+
+// Transfer the stack pointer to the X register
+
+uint8_t TSX() {
+    cpu.X = cpu.SP;
+    setFlag(Z_FLAG, cpu.X == 0x00);
+    setFlag(N_FLAG, cpu.X & 0x80);
+    return 0;
+}
+
+// Transfer the X register to the stack pointer
+
+uint8_t TXS() {
+    cpu.SP = cpu.X;
+    return 0;
+}
+
+// Store the accumulator in memory
+
+uint8_t STA() {
+    cWrite(cpu.addr_abs, cpu.A);
+    return 0;
+}
+
+// Store the X register in memory
+
+uint8_t STX() {
+    cWrite(cpu.addr_abs, cpu.X);
+    return 0;
+}
+
+// Store the Y register in memory
+
+uint8_t STY() {
+    cWrite(cpu.addr_abs, cpu.Y);
+    return 0;
 }
