@@ -1,6 +1,9 @@
 #pragma once
 #include <stdint.h>
-#include <bus.h>
+#include "bus_interface.h"
+
+#define MAX_INSTRUCTION_LENGTH 64
+#define MAP_LENGTH 256
 
 // bits of the status register
 typedef enum
@@ -91,3 +94,20 @@ uint8_t LSR(); uint8_t NOP(); uint8_t ORA(); uint8_t PHA(); uint8_t PHP(); uint8
 uint8_t ROR(); uint8_t RTI(); uint8_t RTS(); uint8_t SBC(); uint8_t SEC(); uint8_t SED(); uint8_t SEI(); uint8_t STA();
 uint8_t STX(); uint8_t STY(); uint8_t TAX(); uint8_t TAY(); uint8_t TSX(); uint8_t TXA(); uint8_t TXS(); uint8_t TYA();
 uint8_t XXX();
+
+// Utility
+
+// disassemble
+uint8_t disassemble(uint16_t addr, char* dest);
+
+typedef struct {
+    uint16_t address;
+    char instruction[MAX_INSTRUCTION_LENGTH];
+} mapEntry;
+
+typedef struct {
+    mapEntry entries[MAP_LENGTH];
+    size_t count;
+    size_t capacity;
+} Instruction_Map;
+};

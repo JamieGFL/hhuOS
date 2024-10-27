@@ -1,6 +1,8 @@
 #include "cpu6502.h"
-#include "bus.h"
 #include <stddef.h>
+#include <string.h>
+#include <stdio.h>
+#include <stdlib.h>
 
 static Cpu6502 cpu;
 
@@ -946,4 +948,158 @@ uint8_t STX() {
 uint8_t STY() {
     cWrite(cpu.addr_abs, cpu.Y);
     return 0;
+}
+
+
+
+// Utility
+
+// ----------------------------------
+
+Instruction_Map* createMap(size_t capacity) {
+    Instruction_Map* map = (Instruction_Map*)malloc(sizeof(Instruction_Map));
+    map->count = 0;
+    map->capacity = capacity;
+    map->instructions = (mapEntry*)malloc(sizeof(mapEntry) * map->capacity);
+    return map;
+}
+
+void destroyMap(Instruction_Map* map) {
+    free(map->instructions);
+    free(map);
+}
+
+void addInstruction(Instruction_Map *map, uint16_t address, const char *instruction) {
+    if (map->count == map->capacity) {
+        map->capacity *= 2;
+        map->instructions = (mapEntry*)realloc(map->instructions, sizeof(mapEntry) * map->capacity);
+    }
+
+    map->instructions[map->count].address = address;
+    strncpy(map->instructions[map->count].instruction, instruction, MAX_INSTRUCTION_LENGTH - 1);
+    map->instructions[map->count].instruction[MAX_INSTRUCTION_LENGTH - 1] = '\0';
+    map->count++;
+}
+
+void hex(uint32_t intValue, uint8_t length, char* hexstring){
+    for(int i = length - 1; i >= 0; i--, intValue >>= 4){
+        hexstring[i] = "0123456789ABCDEF"[intValue & 0xF];
+    }
+    hexstring[length] = '\0';
+}
+
+InstructionMap* disassemble(uint16_t nStart, uint16_t nStop, bus *bus, LookupTable *lookup) {
+    uint32_t addr = nStart;
+    uint8_t value = 0x00, lowByte = 0x00, highByte = 0x00;
+    InstructionMap *map = create_instruction_map(MAX_INSTRUCTIONS);
+    char sInst[MAX_INSTRUCTION_LENGTH]; // Instruction string
+
+    while (addr <= (uint32_t)nStop) {
+        uint16_t line_addr = addr;
+        char addr_buf[6]; // Buffer for formatted address
+
+        // Prefix line with instruction address
+        hex(addr, 4, addr_buf);
+        snprintf(sInst, sizeof(sInst), "$%s: ", addr_buf);
+
+        // Read instruction, and get its readable name
+        uint8_t opcode = bus->read(addr, 1); addr++;
+        strncat(sInst, lookup[opcode].name, sizeof(sInst) - strlen(sInst) - 1); // Append instruction name
+        strncat(sInst, " ", sizeof(sInst) - strlen(sInst) - 1);
+
+        // Get operands based on addressing mode in C
+
+
+        if (lookup[opcode].addrmode == &IMP) {
+            strncat(sInst, "{IMP}", sizeof(sInst) - strlen(sInst) - 1);
+        }
+        else if (lookup[opcode].addrmode == &IMM)
+        {
+            value = bus->read(addr, 1); addr++;
+            char value_buf[3];
+            hex(value, 2, value_buf);
+            snprintf(sInst + strlen(sInst), sizeof(sInst) - strlen(sInst), "#$%s {IMM}", value_buf);
+        }
+        else if (lookup[opcode].addrmode == &ZP0)
+        {
+            value = bus->read(addr, 1); addr++;
+            char value_buf[3];
+            hex(value, 2, value_buf);
+            snprintf(sInst + strlen(sInst), sizeof(sInst) - strlen(sInst), "$%02X {ZP0}", value_buf);
+        }
+        else if (lookup[opcode].addrmode == &ZPX)
+        {
+            value = bus->read(addr, 1); addr++;
+            char value_buf[3];
+            hex(value, 2, value_buf);
+            snprintf(sInst + strlen(sInst), sizeof(sInst) - strlen(sInst), "$%02X, X {ZPX}", value_buf);
+        }
+        else if (lookup[opcode].addrmode == &ZPY)
+        {
+            value = bus->read(addr, 1); addr++;
+            char value_buf[3];
+            hex(value, 2, value_buf);
+            snprintf(sInst + strlen(sInst), sizeof(sInst) - strlen(sInst), "$%02X, Y {ZPY}", value_buf);
+        }
+        else if (lookup[opcode].addrmode == &IZX)
+        {
+            value = bus->read(addr, 1); addr++;
+            char value_buf[3];
+            hex(value, 2, value_buf);
+            snprintf(sInst + strlen(sInst), sizeof(sInst) - strlen(sInst), "($%02X, X) {IZX}", value);
+        }
+        else if (lookup[opcode].addrmode == &IZY)
+        {
+            value = bus->read(addr, 1); addr++;
+            char value_buf[3];
+            hex(value, 2, value_buf);
+            snprintf(sInst + strlen(sInst), sizeof(sInst) - strlen(sInst), "($%02X), Y {IZY}", value_buf);
+        }
+        else if (lookup[opcode].addrmode == &ABS)
+        {
+            lowByte = bus->read(addr, 1); addr++;
+            highByte = bus->read(addr, 1); addr++;
+            char value_buf[5];
+            hex((highByte << 8) | lowByte, 4, value_buf);
+            snprintf(sInst + strlen(sInst), sizeof(sInst) - strlen(sInst), "$%04X {ABS}", value_buf);
+        }
+        else if (lookup[opcode].addrmode == &ABX)
+        {
+            lowByte = bus->read(addr, 1); addr++;
+            highByte = bus->read(addr, 1); addr++;
+            char value_buf[5];
+            hex((highByte << 8) | lowByte, 4, value_buf);
+            snprintf(sInst + strlen(sInst), sizeof(sInst) - strlen(sInst), "$%04X, X {ABX}", value_buf);
+        }
+        else if (lookup[opcode].addrmode == &ABY)
+        {
+            lowByte = bus->read(addr, 1); addr++;
+            highByte = bus->read(addr, 1); addr++;
+            char value_buf[5];
+            hex((highByte << 8) | lowByte, 4, value_buf);
+            snprintf(sInst + strlen(sInst), sizeof(sInst) - strlen(sInst), "$%04X, Y {ABY}", value_buf);
+        }
+        else if (lookup[opcode].addrmode == &IND)
+        {
+            lowByte = bus->read(addr, 1); addr++;
+            highByte = bus->read(addr, 1); addr++;
+            char value_buf[5];
+            hex((highByte << 8) | lowByte, 4, value_buf);
+            snprintf(sInst + strlen(sInst), sizeof(sInst) - strlen(sInst), "($%04X) {IND}", value_buf);
+        }
+        else if (lookup[opcode].addrmode == &REL)
+        {
+            value = bus->read(addr, 1); addr++;
+            char value_buf[3];
+            hex(value, 2, value_buf);
+            char value_buf2[5];
+            hex(addr + value, 4, value_buf2);
+            snprintf(sInst + strlen(sInst), sizeof(sInst) - strlen(sInst), "$%02X [$%04X] {REL}", value_buf, value_buf2);
+        }
+
+        // Add the formed instruction string to the map
+        add_instruction(map, line_addr, sInst);
+    }
+
+    return map;
 }
