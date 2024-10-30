@@ -9,9 +9,6 @@ typedef struct {
     // bus
     bus bus;
 
-    // Components
-    cpu6502 cpu;
-
 } bus_nes;
 
 void bInit(bus_nes* b);

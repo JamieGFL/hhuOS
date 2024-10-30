@@ -6,11 +6,14 @@ static void nes_bus_Write(bus* b, uint16_t addr, uint8_t val);
 static uint8_t nes_bus_Read(bus* b, uint16_t addr, int readOnly);
 
 void bInit(bus_nes* b) {
-    b->bus
+    b->bus = bus;
 
     // set function pointers
     b->bus.bWrite = nes_bus_Write;
     b->bus.bRead = nes_bus_Read;
+
+    b->bus.cpu.cInit();
+    b->bus.cpu.connectBus(bus);
 
     for (unsigned int i = 0; i < sizeof(b->ram); i++) {
         b->bus.ram[i] = 0x00;

@@ -988,7 +988,7 @@ void hex(uint32_t intValue, uint8_t length, char* hexstring){
     hexstring[length] = '\0';
 }
 
-InstructionMap* disassemble(uint16_t nStart, uint16_t nStop, bus *bus, LookupTable *lookup) {
+InstructionMap* disassemble(uint16_t nStart, uint16_t nStop, bus *bus) {
     uint32_t addr = nStart;
     uint8_t value = 0x00, lowByte = 0x00, highByte = 0x00;
     InstructionMap *map = create_instruction_map(MAX_INSTRUCTIONS);
@@ -1004,58 +1004,58 @@ InstructionMap* disassemble(uint16_t nStart, uint16_t nStop, bus *bus, LookupTab
 
         // Read instruction, and get its readable name
         uint8_t opcode = bus->read(addr, 1); addr++;
-        strncat(sInst, lookup[opcode].name, sizeof(sInst) - strlen(sInst) - 1); // Append instruction name
+        strncat(sInst, lookupTable[opcode].name, sizeof(sInst) - strlen(sInst) - 1); // Append instruction name
         strncat(sInst, " ", sizeof(sInst) - strlen(sInst) - 1);
 
         // Get operands based on addressing mode in C
 
 
-        if (lookup[opcode].addrmode == &IMP) {
+        if (lookupTable[opcode].addrmode == &IMP) {
             strncat(sInst, "{IMP}", sizeof(sInst) - strlen(sInst) - 1);
         }
-        else if (lookup[opcode].addrmode == &IMM)
+        else if (lookupTable[opcode].addrmode == &IMM)
         {
             value = bus->read(addr, 1); addr++;
             char value_buf[3];
             hex(value, 2, value_buf);
             snprintf(sInst + strlen(sInst), sizeof(sInst) - strlen(sInst), "#$%s {IMM}", value_buf);
         }
-        else if (lookup[opcode].addrmode == &ZP0)
+        else if (lookupTable[opcode].addrmode == &ZP0)
         {
             value = bus->read(addr, 1); addr++;
             char value_buf[3];
             hex(value, 2, value_buf);
             snprintf(sInst + strlen(sInst), sizeof(sInst) - strlen(sInst), "$%02X {ZP0}", value_buf);
         }
-        else if (lookup[opcode].addrmode == &ZPX)
+        else if (lookupTable[opcode].addrmode == &ZPX)
         {
             value = bus->read(addr, 1); addr++;
             char value_buf[3];
             hex(value, 2, value_buf);
             snprintf(sInst + strlen(sInst), sizeof(sInst) - strlen(sInst), "$%02X, X {ZPX}", value_buf);
         }
-        else if (lookup[opcode].addrmode == &ZPY)
+        else if (lookupTable[opcode].addrmode == &ZPY)
         {
             value = bus->read(addr, 1); addr++;
             char value_buf[3];
             hex(value, 2, value_buf);
             snprintf(sInst + strlen(sInst), sizeof(sInst) - strlen(sInst), "$%02X, Y {ZPY}", value_buf);
         }
-        else if (lookup[opcode].addrmode == &IZX)
+        else if (lookupTable[opcode].addrmode == &IZX)
         {
             value = bus->read(addr, 1); addr++;
             char value_buf[3];
             hex(value, 2, value_buf);
             snprintf(sInst + strlen(sInst), sizeof(sInst) - strlen(sInst), "($%02X, X) {IZX}", value);
         }
-        else if (lookup[opcode].addrmode == &IZY)
+        else if (lookupTable[opcode].addrmode == &IZY)
         {
             value = bus->read(addr, 1); addr++;
             char value_buf[3];
             hex(value, 2, value_buf);
             snprintf(sInst + strlen(sInst), sizeof(sInst) - strlen(sInst), "($%02X), Y {IZY}", value_buf);
         }
-        else if (lookup[opcode].addrmode == &ABS)
+        else if (lookupTable[opcode].addrmode == &ABS)
         {
             lowByte = bus->read(addr, 1); addr++;
             highByte = bus->read(addr, 1); addr++;
@@ -1063,7 +1063,7 @@ InstructionMap* disassemble(uint16_t nStart, uint16_t nStop, bus *bus, LookupTab
             hex((highByte << 8) | lowByte, 4, value_buf);
             snprintf(sInst + strlen(sInst), sizeof(sInst) - strlen(sInst), "$%04X {ABS}", value_buf);
         }
-        else if (lookup[opcode].addrmode == &ABX)
+        else if (lookupTable[opcode].addrmode == &ABX)
         {
             lowByte = bus->read(addr, 1); addr++;
             highByte = bus->read(addr, 1); addr++;
@@ -1071,7 +1071,7 @@ InstructionMap* disassemble(uint16_t nStart, uint16_t nStop, bus *bus, LookupTab
             hex((highByte << 8) | lowByte, 4, value_buf);
             snprintf(sInst + strlen(sInst), sizeof(sInst) - strlen(sInst), "$%04X, X {ABX}", value_buf);
         }
-        else if (lookup[opcode].addrmode == &ABY)
+        else if (lookupTable[opcode].addrmode == &ABY)
         {
             lowByte = bus->read(addr, 1); addr++;
             highByte = bus->read(addr, 1); addr++;
@@ -1079,7 +1079,7 @@ InstructionMap* disassemble(uint16_t nStart, uint16_t nStop, bus *bus, LookupTab
             hex((highByte << 8) | lowByte, 4, value_buf);
             snprintf(sInst + strlen(sInst), sizeof(sInst) - strlen(sInst), "$%04X, Y {ABY}", value_buf);
         }
-        else if (lookup[opcode].addrmode == &IND)
+        else if (lookupTable[opcode].addrmode == &IND)
         {
             lowByte = bus->read(addr, 1); addr++;
             highByte = bus->read(addr, 1); addr++;
@@ -1087,7 +1087,7 @@ InstructionMap* disassemble(uint16_t nStart, uint16_t nStop, bus *bus, LookupTab
             hex((highByte << 8) | lowByte, 4, value_buf);
             snprintf(sInst + strlen(sInst), sizeof(sInst) - strlen(sInst), "($%04X) {IND}", value_buf);
         }
-        else if (lookup[opcode].addrmode == &REL)
+        else if (lookupTable[opcode].addrmode == &REL)
         {
             value = bus->read(addr, 1); addr++;
             char value_buf[3];
