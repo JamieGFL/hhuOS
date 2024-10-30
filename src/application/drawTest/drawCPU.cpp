@@ -32,6 +32,7 @@ typedef struct {
     char instruction[MAX_INSTRUCTION_LENGTH];
 } mapEntry;
 
+
 typedef struct {
     mapEntry entries[MAP_LENGTH];
     size_t count;
