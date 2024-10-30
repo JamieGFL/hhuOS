@@ -67,6 +67,7 @@ add_custom_command(OUTPUT "${HHUOS_ROOT_DIR}/hdd0.img"
         COMMAND /bin/cp "$<TARGET_FILE:unmount>" "bin/unmount"
         COMMAND /bin/cp "$<TARGET_FILE:uptime>" "bin/uptime"
         COMMAND /bin/cp "$<TARGET_FILE:view3d>" "bin/view3d"
+		COMMAND /bin/cp "$<TARGET_FILE:drawTest>" "bin/drawTest"
         COMMAND /bin/cp -r "${CMAKE_BINARY_DIR}/asciimation" "user"
         COMMAND /bin/cp -r "${CMAKE_BINARY_DIR}/beep" "user"
         COMMAND /bin/cp -r "${CMAKE_BINARY_DIR}/books" "user"
@@ -81,6 +82,6 @@ add_custom_command(OUTPUT "${HHUOS_ROOT_DIR}/hdd0.img"
         COMMAND /bin/cat "${CMAKE_BINARY_DIR}/fill.img" "${CMAKE_BINARY_DIR}/part.img" "${CMAKE_BINARY_DIR}/fill.img" > "${HHUOS_ROOT_DIR}/hdd0.img"
         COMMAND /bin/rm "${CMAKE_BINARY_DIR}/part.img" "${CMAKE_BINARY_DIR}/fill.img"
         COMMAND /bin/echo -e "'o\\nn\\np\\n1\\n2048\\n$<IF:$<CONFIG:Debug>,196607,131071>\\nt\\ne\\nw\\n'" | fdisk "${HHUOS_ROOT_DIR}/hdd0.img"
-        DEPENDS asciimation-star-wars beep-files books-gutenberg gameboy-roms wav-files shell asciimate battlespace beep bug cat cp ctest date demo dino doom echo head hexdump ip keyboard kill ls membench mkdir mount nettest peanut-gb ping play portablegl ps pwd quake rm rmdir shutdown smbios tinygl touch tree uecho unmount uptime view3d)
+        DEPENDS drawTest asciimation-star-wars beep-files books-gutenberg gameboy-roms wav-files shell asciimate battlespace beep bug cat cp ctest date demo dino doom echo head hexdump ip keyboard kill ls membench mkdir mount nettest peanut-gb ping play portablegl ps pwd quake rm rmdir shutdown smbios tinygl touch tree uecho unmount uptime view3d)
 
-add_custom_target(${PROJECT_NAME} DEPENDS asciimation-star-wars beep-files books-gutenberg gameboy-roms wav-files shell asciimate battlespace beep bug cat cp ctest date demo dino doom echo head hexdump ip keyboard kill ls membench mkdir mount nettest peanut-gb ping play portablegl ps pwd quake rm rmdir shutdown smbios tinygl touch tree uecho unmount uptime view3d "${HHUOS_ROOT_DIR}/hdd0.img")
+add_custom_target(${PROJECT_NAME} DEPENDS drawTest asciimation-star-wars beep-files books-gutenberg gameboy-roms wav-files shell asciimate battlespace beep bug cat cp ctest date demo dino doom echo head hexdump ip keyboard kill ls membench mkdir mount nettest peanut-gb ping play portablegl ps pwd quake rm rmdir shutdown smbios tinygl touch tree uecho unmount uptime view3d "${HHUOS_ROOT_DIR}/hdd0.img")
