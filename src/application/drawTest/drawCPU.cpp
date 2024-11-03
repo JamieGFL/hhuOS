@@ -23,6 +23,7 @@
 
 #define MAX_INSTRUCTION_LENGTH 64
 #define MAP_LENGTH 256
+#define MAX_SCANCODE 256
 
 const unsigned int VIDEO_HEIGHT = 32;
 const unsigned int VIDEO_WIDTH = 64;
@@ -32,11 +33,10 @@ typedef struct {
     char instruction[MAX_INSTRUCTION_LENGTH];
 } mapEntry;
 
-
 typedef struct {
     mapEntry entries[MAP_LENGTH];
-    size_t count;
-    size_t capacity;
+    int count;
+    int capacity;
 } Instruction_Map;
 
 int pc;
@@ -104,19 +104,27 @@ void drawCPU(int x, int y, Util::Graphic::StringDrawer* stringDrawer){
     }
 
     // Draw register values
-    drawText(Util::String("PC: $") + hex(0x0000, 4), x, y + 20, textColor, stringDrawer);
+    drawText(Util::String("PC: $") + hex(pc, 4), x, y + 20, textColor, stringDrawer);
     drawText(Util::String("A: $") + hex(0x00, 2) + "  [" + Util::String::format("%d", 0x00) + "]", x, y + 30, textColor, stringDrawer);
     drawText(Util::String("X: $") + hex(0x00, 2) + "  [" + Util::String::format("%d", 0x00) + "]", x, y + 40, textColor, stringDrawer);
     drawText(Util::String("Y: $") + hex(0x00, 2) + "  [" + Util::String::format("%d", 0x00) + "]", x, y + 50, textColor, stringDrawer);
     drawText(Util::String("Stack P: $") + hex(0x0000, 4), x, y + 60, textColor, stringDrawer);
 }
 
-void drawInstructions(int x, int y, int nLines, Util::Graphic::StringDrawer* stringDrawer){
+void drawInstructions(int x, int y, int nLines, Util::Graphic::StringDrawer* stringDrawer, Util::Graphic::PixelDrawer* pixelDrawer){
     Util::Graphic::Color textColor(255, 255, 255); // White color for other instructions
     Util::Graphic::Color highlightColor(255, 255, 0); // Yellow color for the current instruction
 
+    Util::Graphic::Color darkGreenColor(0, 60, 0, 255);
+    // clear instruction area
+    for (int i = 0; i < nLines + 1000; ++i) {
+        for (int j = 0; j < 1000; ++j) {
+            pixelDrawer->drawPixel(x + j, y + i * 10, darkGreenColor);
+        }
+    }
+
     // Find the index of the current instruction based on the program counter (pc)
-    size_t currentIndex = 0;
+    int currentIndex = 0;
     for (; currentIndex < instructions.count; ++currentIndex) {
         if (instructions.entries[currentIndex].address == pc) {
             break; // Found the current instruction
@@ -147,20 +155,23 @@ void drawInstructions(int x, int y, int nLines, Util::Graphic::StringDrawer* str
 }
 
 
-void update(Util::Graphic::StringDrawer* stringDrawer){
+void update(Util::Graphic::StringDrawer* stringDrawer, Util::Graphic::PixelDrawer* pixelDrawer){
     // Draw
     drawRAM( 8, 2, 0x0000, 16, 16, stringDrawer);
     drawRAM( 8, 172, 0x8000, 16, 16, stringDrawer);
     drawCPU( 454, 2, stringDrawer);
-    drawInstructions(454, 72, 26, stringDrawer);
+    Util::Graphic::Color darkGreenColor(0, 60, 0, 255);
+    for (int y = 70; y < 700; ++y) {
+        for (int x = 450; x < 800; ++x) {
+            pixelDrawer->drawPixel(x, y, darkGreenColor);
+        }
+    }
+    drawInstructions(454, 72, 10, stringDrawer, pixelDrawer);
 };
 
 int main(){
     Util::Io::File lfbFile("/device/lfb");
 
-    // window width and height
-    int windowWidth = 640;
-    int windowHeight = 320;
     lfbFile.controlFile(Util::Graphic::LinearFrameBuffer::SET_RESOLUTION, Util::Array<uint32_t>({VIDEO_WIDTH, VIDEO_HEIGHT}));
 
     auto* lfb = new Util::Graphic::LinearFrameBuffer(lfbFile);
@@ -168,7 +179,6 @@ int main(){
     auto pixelDrawer = Util::Graphic::PixelDrawer(*lfb);
     auto stringDrawer = Util::Graphic::StringDrawer(pixelDrawer);
     Util::Graphic::Ansi::prepareGraphicalApplication(true);
-    lfb->clear();
 
     Util::Io::File::setAccessMode(Util::Io::STANDARD_INPUT, Util::Io::File::NON_BLOCKING);
     auto keyDecoder = Util::Io::KeyDecoder(new Util::Io::DeLayout());
@@ -202,10 +212,30 @@ int main(){
     entry6.address = 0x0006;
     strcpy(entry6.instruction, "LDA $0000");
     instructions.entries[6] = entry6;
+    mapEntry entry7;
+    entry7.address = 0x0007;
+    strcpy(entry7.instruction, "LDX $0000");
+    instructions.entries[7] = entry7;
+    mapEntry entry8;
+    entry8.address = 0x0008;
+    strcpy(entry8.instruction, "LDY $0000");
+    instructions.entries[8] = entry8;
+    mapEntry entry9;
+    entry9.address = 0x0009;
+    strcpy(entry9.instruction, "STA $0000");
+    instructions.entries[9] = entry9;
+    mapEntry entry10;
+    entry10.address = 0x000A;
+    strcpy(entry10.instruction, "STX $0000");
+    instructions.entries[10] = entry10;
+    mapEntry entry11;
+    entry11.address = 0x000B;
+    strcpy(entry11.instruction, "STY $0000");
+    instructions.entries[11] = entry11;
 
 
-    instructions.count = 7;
-    instructions.capacity = 7;
+    instructions.count = 12;
+    instructions.capacity = 12;
 
     // Colors
     Util::Graphic::Color darkGreenColor(0, 60, 0, 255); // RGB(0, 100, 0) with full opacity
@@ -218,30 +248,34 @@ int main(){
     }
     pc = 0x0000;
 
-    update(&stringDrawer);
-    while(true){
+    update(&stringDrawer, &pixelDrawer);
+    while(true) {
         auto keyCode = Util::System::in.read();
 
         if (keyCode != -1 && keyDecoder.parseScancode(keyCode)) {
             Util::Io::Key key = keyDecoder.getCurrentKey();
 
-            switch (key.getScancode()) {
-                case Util::Io::Key::SPACE:
-                    pc += 0x0001;
-                    update(&stringDrawer);
-                    break;
-                case Util::Io::Key::R:
-                    pc -= 0x0001;
-                    update(&stringDrawer);
-                    break;
+            if (key.isPressed()) {
 
-                    // Exit if Esc is pressed
-                case Util::Io::Key::ESC:
-                    return true;
-                default:
-                    break;
+                switch (key.getScancode()) {
+                    case Util::Io::Key::SPACE:
+                        pc += 0x0001;
+                        update(&stringDrawer, &pixelDrawer);
+                        break;
+                    case Util::Io::Key::R:
+                        pc -= 0x0001;
+                        update(&stringDrawer, &pixelDrawer);
+                        break;
+
+                        // Exit if Esc is pressed
+                    case Util::Io::Key::ESC:
+                        return true;
+                    default:
+                        break;
+                }
             }
         }
+
     }
 
     return 0;
