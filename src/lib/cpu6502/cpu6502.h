@@ -37,77 +37,83 @@ typedef struct {
 
 } cpu6502;
 
-void cInit();
+void cInit(cpu6502* cpu);
 
 void cDestroy();
 
-void connectBus(bus* b);
+void connectBus(cpu6502* cpu, bus* b);
 
-void clock(); // Clock function for clock cycles to occur
-void reset(); // Reset Signal
-void irq(); // Interrupt Request Signal
-void nmi(); // Non-Maskable Interrupt Request Signal
+// write to memory through bus
+uint8_t cRead(cpu6502* cpu, uint16_t addr);
+
+// read from memory through bus
+void cWrite(cpu6502* cpu, uint16_t addr, uint8_t val);
+
+void clock(cpu6502* cpu); // Clock function for clock cycles to occur
+void reset(cpu6502* cpu); // Reset Signal
+void irq(cpu6502* cpu); // Interrupt Request Signal
+void nmi(cpu6502* cpu); // Non-Maskable Interrupt Request Signal
 
 uint8_t fetchData(); // Fetches data from memory
 
-// write to memory through bus
-uint8_t cRead(uint16_t addr);
 
-// read from memory through bus
-void cWrite(uint16_t addr, uint8_t val);
 
 // get flag from status register
-uint8_t getFlag(CPUFLAGS flag);
+uint8_t getFlag(cpu6502* cpu, CPUFLAGS flag);
 
 // set flag in status register
-void setFlag(CPUFLAGS flag, int val);
+void setFlag(cpu6502* cpu, CPUFLAGS flag, int val);
 
 typedef struct
 {
     char name[4]; // Name of the instruction
-    uint8_t (:*operation)(void) // = nullptr; // Function pointer to the operation
-    uint8_t (*addressmode)(void) // = nullptr; // Function pointer to the address mode
+    uint8_t (*operation)(cpu6502* cpu); // = nullptr; // Function pointer to the operation
+    uint8_t (*addressmode)(cpu6502* cpu); // = nullptr; // Function pointer to the address mode
     uint8_t cycles; // Number of cycles the instruction requires
 } instruction;
 
 
 // Addressing Modes
-uint8_t IMP();
-uint8_t IMM();
-uint8_t ZP0();
-uint8_t ZPX();
-uint8_t ZPY();
-uint8_t REL();
-uint8_t ABS();
-uint8_t ABX();
-uint8_t ABY();
-uint8_t IND();
-uint8_t IZX();
-uint8_t IZY();
+uint8_t IMP(cpu6502 * cpu);
+uint8_t IMM(cpu6502 * cpu);
+uint8_t ZP0(cpu6502 * cpu);
+uint8_t ZPX(cpu6502 * cpu);
+uint8_t ZPY(cpu6502 * cpu);
+uint8_t REL(cpu6502 * cpu);
+uint8_t ABS(cpu6502 * cpu);
+uint8_t ABX(cpu6502 * cpu);
+uint8_t ABY(cpu6502 * cpu);
+uint8_t IND(cpu6502 * cpu);
+uint8_t IZX(cpu6502 * cpu);
+uint8_t IZY(cpu6502 * cpu);
 
 // Opcodes
-uint8_t ADC(); uint8_t AND(); uint8_t ASL(); uint8_t BCC(); uint8_t BCS(); uint8_t BEQ(); uint8_t BIT(); uint8_t BMI();
-uint8_t BNE(); uint8_t BPL(); uint8_t BRK(); uint8_t BVC(); uint8_t BVS(); uint8_t CLC(); uint8_t CLD(); uint8_t CLI();
-uint8_t CLV(); uint8_t CMP(); uint8_t CPX(); uint8_t CPY(); uint8_t DEC(); uint8_t DEX(); uint8_t DEY(); uint8_t EOR();
-uint8_t INC(); uint8_t INX(); uint8_t INY(); uint8_t JMP(); uint8_t JSR(); uint8_t LDA(); uint8_t LDX(); uint8_t LDY();
-uint8_t LSR(); uint8_t NOP(); uint8_t ORA(); uint8_t PHA(); uint8_t PHP(); uint8_t PLA(); uint8_t PLP(); uint8_t ROL();
-uint8_t ROR(); uint8_t RTI(); uint8_t RTS(); uint8_t SBC(); uint8_t SEC(); uint8_t SED(); uint8_t SEI(); uint8_t STA();
-uint8_t STX(); uint8_t STY(); uint8_t TAX(); uint8_t TAY(); uint8_t TSX(); uint8_t TXA(); uint8_t TXS(); uint8_t TYA();
-uint8_t XXX();
+uint8_t ADC(cpu6502* cpu); uint8_t AND(cpu6502* cpu); uint8_t ASL(cpu6502* cpu); uint8_t BCC(cpu6502* cpu); uint8_t BCS(cpu6502* cpu);
+uint8_t BEQ(cpu6502* cpu); uint8_t BIT(cpu6502* cpu); uint8_t BMI(cpu6502* cpu); uint8_t BNE(cpu6502* cpu); uint8_t BPL(cpu6502* cpu);
+uint8_t BRK(cpu6502* cpu); uint8_t BVC(cpu6502* cpu); uint8_t BVS(cpu6502* cpu); uint8_t CLC(cpu6502* cpu); uint8_t CLD(cpu6502* cpu);
+uint8_t CLI(cpu6502* cpu); uint8_t CLV(cpu6502* cpu); uint8_t CMP(cpu6502* cpu); uint8_t CPX(cpu6502* cpu); uint8_t CPY(cpu6502* cpu);
+uint8_t DEC(cpu6502* cpu); uint8_t DEX(cpu6502* cpu); uint8_t DEY(cpu6502* cpu); uint8_t EOR(cpu6502* cpu); uint8_t INC(cpu6502* cpu);
+uint8_t INX(cpu6502* cpu); uint8_t INY(cpu6502* cpu); uint8_t JMP(cpu6502* cpu); uint8_t JSR(cpu6502* cpu); uint8_t LDA(cpu6502* cpu);
+uint8_t LDX(cpu6502* cpu); uint8_t LDY(cpu6502* cpu); uint8_t LSR(cpu6502* cpu); uint8_t NOP(); uint8_t ORA(cpu6502* cpu);
+uint8_t PHA(cpu6502* cpu); uint8_t PHP(cpu6502* cpu); uint8_t PLA(cpu6502* cpu); uint8_t PLP(cpu6502* cpu); uint8_t ROL(cpu6502* cpu);
+uint8_t ROR(cpu6502* cpu); uint8_t RTI(cpu6502* cpu); uint8_t RTS(cpu6502* cpu); uint8_t SBC(cpu6502* cpu); uint8_t SEC(cpu6502* cpu);
+uint8_t SED(cpu6502* cpu); uint8_t SEI(cpu6502* cpu); uint8_t STA(cpu6502* cpu); uint8_t STX(cpu6502* cpu); uint8_t STY(cpu6502* cpu);
+uint8_t TAX(cpu6502* cpu); uint8_t TAY(cpu6502* cpu); uint8_t TSX(cpu6502* cpu); uint8_t TXA(cpu6502* cpu); uint8_t TXS(cpu6502* cpu);
+uint8_t TYA(cpu6502* cpu); uint8_t XXX();
 
 // Utility
 
-// disassemble
-uint8_t disassemble(uint16_t addr, char* dest);
-
 typedef struct {
     uint16_t address;
-    char instruction[MAX_INSTRUCTION_LENGTH];
+    char* instruction;
 } mapEntry;
 
 typedef struct {
     mapEntry entries[MAP_LENGTH];
-    size_t count;
-    size_t capacity;
+    int count;
+    int capacity;
 } Instruction_Map;
-};
+
+// disassemble
+Instruction_Map disassemble(uint16_t nStart, uint16_t nStop, bus *bus);
+
