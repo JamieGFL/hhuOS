@@ -1,4 +1,5 @@
-#pragma once
+#ifndef CPU6502_H
+#define CPU6502_H
 #include <stdint.h>
 #include "bus_interface.h"
 
@@ -18,8 +19,8 @@ typedef enum
     N_FLAG = (1 << 7)  // Negative
 } CPUFLAGS;
 
-typedef struct {
-    bus* bus;
+typedef struct cpu6502 {
+    bus* nesBus;
 
     uint8_t A;      // Accumulator Register
     uint8_t X;      // X Register
@@ -49,12 +50,12 @@ uint8_t cRead(cpu6502* cpu, uint16_t addr);
 // read from memory through bus
 void cWrite(cpu6502* cpu, uint16_t addr, uint8_t val);
 
-void clock(cpu6502* cpu); // Clock function for clock cycles to occur
+void advanceClock(cpu6502* cpu); // Clock function for clock cycles to occur
 void reset(cpu6502* cpu); // Reset Signal
 void irq(cpu6502* cpu); // Interrupt Request Signal
 void nmi(cpu6502* cpu); // Non-Maskable Interrupt Request Signal
 
-uint8_t fetchData(); // Fetches data from memory
+uint8_t fetchData(cpu6502* cpu); // Fetches data from memory
 
 
 
@@ -94,12 +95,12 @@ uint8_t BRK(cpu6502* cpu); uint8_t BVC(cpu6502* cpu); uint8_t BVS(cpu6502* cpu);
 uint8_t CLI(cpu6502* cpu); uint8_t CLV(cpu6502* cpu); uint8_t CMP(cpu6502* cpu); uint8_t CPX(cpu6502* cpu); uint8_t CPY(cpu6502* cpu);
 uint8_t DEC(cpu6502* cpu); uint8_t DEX(cpu6502* cpu); uint8_t DEY(cpu6502* cpu); uint8_t EOR(cpu6502* cpu); uint8_t INC(cpu6502* cpu);
 uint8_t INX(cpu6502* cpu); uint8_t INY(cpu6502* cpu); uint8_t JMP(cpu6502* cpu); uint8_t JSR(cpu6502* cpu); uint8_t LDA(cpu6502* cpu);
-uint8_t LDX(cpu6502* cpu); uint8_t LDY(cpu6502* cpu); uint8_t LSR(cpu6502* cpu); uint8_t NOP(); uint8_t ORA(cpu6502* cpu);
+uint8_t LDX(cpu6502* cpu); uint8_t LDY(cpu6502* cpu); uint8_t LSR(cpu6502* cpu); uint8_t NOP(cpu6502* cpu); uint8_t ORA(cpu6502* cpu);
 uint8_t PHA(cpu6502* cpu); uint8_t PHP(cpu6502* cpu); uint8_t PLA(cpu6502* cpu); uint8_t PLP(cpu6502* cpu); uint8_t ROL(cpu6502* cpu);
 uint8_t ROR(cpu6502* cpu); uint8_t RTI(cpu6502* cpu); uint8_t RTS(cpu6502* cpu); uint8_t SBC(cpu6502* cpu); uint8_t SEC(cpu6502* cpu);
 uint8_t SED(cpu6502* cpu); uint8_t SEI(cpu6502* cpu); uint8_t STA(cpu6502* cpu); uint8_t STX(cpu6502* cpu); uint8_t STY(cpu6502* cpu);
 uint8_t TAX(cpu6502* cpu); uint8_t TAY(cpu6502* cpu); uint8_t TSX(cpu6502* cpu); uint8_t TXA(cpu6502* cpu); uint8_t TXS(cpu6502* cpu);
-uint8_t TYA(cpu6502* cpu); uint8_t XXX();
+uint8_t TYA(cpu6502* cpu); uint8_t XXX(cpu6502* cpu);
 
 // Utility
 
@@ -114,6 +115,8 @@ typedef struct {
     int capacity;
 } Instruction_Map;
 
-// disassemble
+int complete(cpu6502* cpu);
+
 Instruction_Map disassemble(uint16_t nStart, uint16_t nStop, bus *bus);
 
+#endif // CPU6502_H

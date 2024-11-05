@@ -1,11 +1,9 @@
-#pragma once
+#ifndef BUS_INTERFACE_H
+#define BUS_INTERFACE_H
 
 
-#include "cpu6502.h"
 
 typedef struct bus {
-    // Components
-    cpu6502 cpu;
 
     // Write to memory
     void (*bWrite)(struct bus* b, uint16_t addr, uint8_t val);
@@ -18,3 +16,5 @@ typedef struct bus {
 
 void bWrite(bus* b, uint16_t addr, uint8_t val);
 uint8_t bRead(bus* b, uint16_t addr, int readOnly);
+
+#endif // BUS_INTERFACE_H

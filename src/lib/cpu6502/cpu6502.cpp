@@ -3,19 +3,8 @@
 #include "lib/libc/stdio.h"
 #include "lib/libc/string.h"
 #include <stddef.h>
-#include <string.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#define U_FLAG (1 << 5)
 
-typedef struct
-{
-    char name[4]; // Name of the instruction
-    uint8_t (*operation)((cpu6502* cpu); // = nullptr; // Function pointer to the operation
-    uint8_t (*addressmode)(cpu6502* cpu); // = nullptr; // Function pointer to the address mode
-    uint8_t cycles; // Number of cycles the instruction requires
-} instruction;
+
 
 
 // Lookup table for instructions in C
@@ -40,7 +29,7 @@ static instruction lookupTable [256]= {
 
 
 void cInit(cpu6502* cpu) {
-    cpu->bus = NULL;
+    cpu->nesBus = NULL;
     cpu->A = 0x00;
     cpu->X = 0x00;
     cpu->Y = 0x00;
@@ -62,15 +51,15 @@ void cDestroy() {
 }
 
 void connectBus(cpu6502* cpu, bus* b) {
-    cpu->bus = b;
+    cpu->nesBus = b;
 }
 
 uint8_t cRead(cpu6502* cpu, uint16_t addr) {
-    return cpu->bus->bRead(cpu->bus, addr, 0);
+    return cpu->nesBus->bRead(cpu->nesBus, addr, 0);
 }
 
 void cWrite(cpu6502* cpu, uint16_t addr, uint8_t val) {
-    bWrite(cpu->bus, addr, val);
+    cpu->nesBus->bWrite(cpu->nesBus, addr, val);
 }
 
 uint8_t getFlag(cpu6502* cpu, CPUFLAGS flag) {
@@ -87,7 +76,7 @@ void setFlag(cpu6502* cpu, CPUFLAGS flag, int val) {
 
 
 
-void clock(cpu6502* cpu) {
+void advanceClock(cpu6502* cpu) {
     if (cpu->cycles == 0) {
         cpu->opcode = cRead(cpu,cpu->PC);
         cpu->PC++;
@@ -827,10 +816,12 @@ uint8_t BRK(cpu6502* cpu) {
 
 // No operation
 
-uint8_t NOP() {
+uint8_t NOP(cpu6502* cpu) {
 
     // NOPs for unofficial opcodes could be added here
-
+    if(complete(cpu)){
+        return 0;
+    }
     return 0;
 }
 
@@ -929,6 +920,17 @@ uint8_t STY(cpu6502* cpu) {
     return 0;
 }
 
+// Unofficial Instructions
+
+// ----------------------------------
+
+uint8_t XXX(cpu6502* cpu) {
+    if(complete(cpu)){
+        return 0;
+    }
+    return 0;
+}
+
 
 
 
@@ -961,6 +963,10 @@ void hex(uint32_t intValue, uint8_t length, char* hexstring){
     hexstring[length] = '\0';
 }
 
+int complete(cpu6502* cpu) {
+    return cpu->cycles == 0;
+}
+
 Instruction_Map disassemble(uint16_t nStart, uint16_t nStop, bus *bus) {
     uint32_t addr = nStart;
     uint8_t value = 0x00, lowByte = 0x00, highByte = 0x00;
@@ -976,7 +982,7 @@ Instruction_Map disassemble(uint16_t nStart, uint16_t nStop, bus *bus) {
         snprintf(sInst, sizeof(sInst), "$%s: ", addr_buf);
 
         // Read instruction, and get its readable name
-        uint8_t opcode = bRead(bus, addr, 1); addr++;
+        uint8_t opcode = bus->bRead(bus, addr, 1); addr++;
         strncat(sInst, lookupTable[opcode].name, sizeof(sInst) - strlen(sInst) - 1); // Append instruction name
         strncat(sInst, " ", sizeof(sInst) - strlen(sInst) - 1);
 
