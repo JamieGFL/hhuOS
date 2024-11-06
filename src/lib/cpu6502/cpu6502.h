@@ -1,6 +1,7 @@
 #ifndef CPU6502_H
 #define CPU6502_H
-#include <cstdint>
+
+#include <stdint.h>
 #include "bus_interface.h"
 
 #define MAX_INSTRUCTION_LENGTH 64
@@ -37,6 +38,10 @@ typedef struct cpu6502 {
     uint8_t cycles; // Represents the number of cycles the current instruction requires
 
 } cpu6502;
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 void cInit(cpu6502* cpu);
 
@@ -118,5 +123,9 @@ typedef struct {
 int complete(cpu6502* cpu);
 
 Instruction_Map disassemble(uint16_t nStart, uint16_t nStop, bus *bus);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif // CPU6502_H

@@ -943,9 +943,9 @@ Instruction_Map createMap() {
     map.count = 0;
     map.capacity = MAP_LENGTH;
     // fill
-    for (auto & entry : map.entries) {
-        entry.address = 0;
-        strcpy(entry.instruction, "\0");
+    for (int i = 0; i < MAP_LENGTH; i++) {
+        map.entries[i].address = 0;
+        strcpy(map.entries[i].instruction, "\0");
         //entry.instruction = "\0";
     }
     return map;
@@ -1044,7 +1044,7 @@ Instruction_Map disassemble(uint16_t nStart, uint16_t nStop, bus *bus) {
             highByte = bus->bRead(bus, addr, 1); addr++;
             char value_buf[5];
             hex((highByte << 8) | lowByte, 4, value_buf);
-            snprintf(sInst + strlen(sInst), sizeof(sInst) - strlen(sInst), "$%04X {ABS}", value_buf);
+            snprintf(sInst + strlen(sInst), sizeof(sInst) - strlen(sInst), "$%s {ABS}", value_buf);
         }
         else if (lookupTable[opcode].addressmode == &ABX)
         {
@@ -1052,7 +1052,7 @@ Instruction_Map disassemble(uint16_t nStart, uint16_t nStop, bus *bus) {
             highByte = bus->bRead(bus, addr, 1); addr++;
             char value_buf[5];
             hex((highByte << 8) | lowByte, 4, value_buf);
-            snprintf(sInst + strlen(sInst), sizeof(sInst) - strlen(sInst), "$%04X, X {ABX}", value_buf);
+            snprintf(sInst + strlen(sInst), sizeof(sInst) - strlen(sInst), "$%s, X {ABX}", value_buf);
         }
         else if (lookupTable[opcode].addressmode == &ABY)
         {
@@ -1060,7 +1060,7 @@ Instruction_Map disassemble(uint16_t nStart, uint16_t nStop, bus *bus) {
             highByte = bus->bRead(bus, addr, 1); addr++;
             char value_buf[5];
             hex((highByte << 8) | lowByte, 4, value_buf);
-            snprintf(sInst + strlen(sInst), sizeof(sInst) - strlen(sInst), "$%04X, Y {ABY}", value_buf);
+            snprintf(sInst + strlen(sInst), sizeof(sInst) - strlen(sInst), "$%s, Y {ABY}", value_buf);
         }
         else if (lookupTable[opcode].addressmode == &IND)
         {
@@ -1068,7 +1068,7 @@ Instruction_Map disassemble(uint16_t nStart, uint16_t nStop, bus *bus) {
             highByte = bus->bRead(bus, addr, 1); addr++;
             char value_buf[5];
             hex((highByte << 8) | lowByte, 4, value_buf);
-            snprintf(sInst + strlen(sInst), sizeof(sInst) - strlen(sInst), "($%04X) {IND}", value_buf);
+            snprintf(sInst + strlen(sInst), sizeof(sInst) - strlen(sInst), "($%s) {IND}", value_buf);
         }
         else if (lookupTable[opcode].addressmode == &REL)
         {
@@ -1077,7 +1077,7 @@ Instruction_Map disassemble(uint16_t nStart, uint16_t nStop, bus *bus) {
             hex(value, 2, value_buf);
             char value_buf2[5];
             hex(addr + value, 4, value_buf2);
-            snprintf(sInst + strlen(sInst), sizeof(sInst) - strlen(sInst), "$%02X [$%04X] {REL}", value_buf, value_buf2);
+            snprintf(sInst + strlen(sInst), sizeof(sInst) - strlen(sInst), "$%s [$%s] {REL}", value_buf, value_buf2);
         }
 
         // Add the formed instruction string to the map
