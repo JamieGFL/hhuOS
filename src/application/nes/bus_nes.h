@@ -14,7 +14,12 @@ typedef struct {
 
 } bus_nes;
 
-void bInit(bus_nes* b, bus* bus);
+
+
+void bInit(bus_nes* b, bus* bus, cpu6502* cpu);
+
+void nes_bus_Write(bus* b, uint16_t addr, uint8_t val);
+uint8_t nes_bus_Read(bus* b, uint16_t addr, int readOnly);
 
 
 #endif //HHUOS_BUS_NES_H

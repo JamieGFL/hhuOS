@@ -1,10 +1,10 @@
 #ifndef CPU6502_H
 #define CPU6502_H
-#include <stdint.h>
+#include <cstdint>
 #include "bus_interface.h"
 
 #define MAX_INSTRUCTION_LENGTH 64
-#define MAP_LENGTH 256
+#define MAP_LENGTH (64 * 1024) // 64KB
 
 // bits of the status register
 typedef enum
@@ -106,7 +106,7 @@ uint8_t TYA(cpu6502* cpu); uint8_t XXX(cpu6502* cpu);
 
 typedef struct {
     uint16_t address;
-    char* instruction;
+    char instruction[MAX_INSTRUCTION_LENGTH];
 } mapEntry;
 
 typedef struct {

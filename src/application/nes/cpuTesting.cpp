@@ -1,5 +1,7 @@
 
 
+#include <cstring>
+
 #include "lib/util/io/key/KeyDecoder.h"
 #include "lib/util/io/key/Key.h"
 #include "lib/util/io/key/layout/DeLayout.h"
@@ -18,7 +20,10 @@
 #include "lib/util/graphic/Ansi.h"
 #include "bus_nes.h"
 
-bus_nes nesBus{};
+static cpu6502 cpu;
+static  bus_nes nesBus;
+static bus b;
+
     Instruction_Map instructions{};
     const unsigned int VIDEO_HEIGHT = 32;
     const unsigned int VIDEO_WIDTH = 64;
@@ -39,22 +44,30 @@ bus_nes nesBus{};
         stringDrawer->drawString(Util::Graphic::Fonts::ACORN_8x8, x, y, static_cast<const char*>(text), color, Util::Graphic::Colors::INVISIBLE);
     }
 
-    void drawRAM(int x, int y, uint16_t addr, int rows, int columns, Util::Graphic::StringDrawer* stringDrawer){
+    void drawRAM(int x, int y, uint16_t addr, int rows, int columns, Util::Graphic::StringDrawer* stringDrawer, Util::Graphic::PixelDrawer* pixelDrawer){
         Util::Graphic::Color textColor(255, 255, 255); // White color for text
+
+        //clear RAM area
+        Util::Graphic::Color darkGreenColor(0, 60, 0, 255);
+        for (int i = 0; i < rows * 15; ++i) {
+            for (int j = 0; j < columns * 15; ++j) {
+                pixelDrawer->drawPixel(x + j, y + i, darkGreenColor);
+            }
+        }
 
         for (int row = 0; row < rows; ++row) {
             // mock data for testing instead of hex(addr, 4)
             Util::String line = Util::String("$") + hex(addr, 4) + Util::String(": ");
             for (int col = 0; col < columns; ++col) {
                 // mock data for testing instead of hex(bus.bRead(&bus, addr, 1), 2)
-                line += hex(0x00, 2) + Util::String(" ");
+                line += hex(nes_bus_Read(nesBus.busBase, addr, 1), 2) + Util::String(" ");
                 addr++;
             }
             drawText(line, x, y + row * 10, textColor, stringDrawer); // Adjust spacing as needed
         }
     }
 
-    void drawCPU(int x, int y, Util::Graphic::StringDrawer* stringDrawer){
+    void drawCPU(int x, int y, Util::Graphic::StringDrawer* stringDrawer, Util::Graphic::PixelDrawer* pixelDrawer){
         Util::Graphic::Color activeColor(0, 255, 0);   // Green for active flags
         Util::Graphic::Color inactiveColor(255, 0, 0); // Red for inactive flags
         Util::Graphic::Color textColor(255, 255, 255);     // White for text
@@ -79,11 +92,21 @@ bus_nes nesBus{};
             flagX += 16;
         }
 
+        Util::Graphic::Color darkGreenColor(0, 60, 0, 255);
+
+        // clear CPU area
+        for (int i = 0; i < 70; ++i) {
+            for (int j = 0; j < 200; ++j) {
+                pixelDrawer->drawPixel(x + j, y + 20 + i, darkGreenColor);
+            }
+        }
+
+
         // Draw register values
         drawText(Util::String("PC: $") + hex(nesBus.cpu->PC, 4), x, y + 20, textColor, stringDrawer);
-        drawText(Util::String("A: $") + hex(nesBus.cpu->A, 2) + "  [" + Util::String::format("%d", 0x00) + "]", x, y + 30, textColor, stringDrawer);
-        drawText(Util::String("X: $") + hex(nesBus.cpu->X, 2) + "  [" + Util::String::format("%d", 0x00) + "]", x, y + 40, textColor, stringDrawer);
-        drawText(Util::String("Y: $") + hex(nesBus.cpu->Y, 2) + "  [" + Util::String::format("%d", 0x00) + "]", x, y + 50, textColor, stringDrawer);
+        drawText(Util::String("A: $") + hex(nesBus.cpu->A, 2) + "  [" + Util::String::format("%d", nesBus.cpu->A) + "]", x, y + 30, textColor, stringDrawer);
+        drawText(Util::String("X: $") + hex(nesBus.cpu->X, 2) + "  [" + Util::String::format("%d", nesBus.cpu->X) + "]", x, y + 40, textColor, stringDrawer);
+        drawText(Util::String("Y: $") + hex(nesBus.cpu->Y, 2) + "  [" + Util::String::format("%d", nesBus.cpu->Y) + "]", x, y + 50, textColor, stringDrawer);
         drawText(Util::String("Stack P: $") + hex(nesBus.cpu->SP, 4), x, y + 60, textColor, stringDrawer);
     }
 
@@ -99,33 +122,31 @@ bus_nes nesBus{};
             }
         }
 
-        // Find the index of the current instruction based on the program counter (pc)
-        int currentIndex = 0;
-        for (; currentIndex < instructions.count; ++currentIndex) {
-            if (instructions.entries[currentIndex].address == nesBus.cpu->PC) {
-                break; // Found the current instruction
+        auto currentPC = nesBus.cpu->PC;
+        int lineY = (nLines >> 1) * 10 + y;
+
+        if(currentPC != instructions.entries[MAP_LENGTH-1].address) {
+            drawText(instructions.entries[currentPC].instruction,
+            x, lineY, highlightColor, stringDrawer);
+            while(lineY < (nLines * 10) + y) {
+                if(currentPC++ != instructions.entries[MAP_LENGTH-1].address && instructions.entries[currentPC].address  != 0 ) {
+                    lineY += 10;
+                    drawText(instructions.entries[currentPC].instruction,
+                    x, lineY, textColor, stringDrawer);
+                }
             }
         }
 
-        // If the current instruction is found
-        if (currentIndex < instructions.count) {
-            int startIndex = (currentIndex >= nLines / 2) ? (currentIndex - nLines / 2) : 0; // Calculate starting index
-            int endIndex = (currentIndex + nLines / 2 + 1 < instructions.count)
-                           ? (currentIndex + nLines / 2 + 1)
-                           : instructions.count; // Calculate ending index
-
-            // Draw instructions from startIndex to endIndex
-            for (int i = startIndex; i < endIndex; ++i) {
-                // Check if the current index matches the program counter
-                Util::Graphic::Color currentColor = (i == currentIndex) ? highlightColor : textColor;
-
-                drawText(
-                        Util::String("$") + hex(instructions.entries[i].address, 4) + ": " + instructions.entries[i].instruction,
-                        x,
-                        y + (i - startIndex) * 10,
-                        currentColor,
-                        stringDrawer
-                );
+        currentPC = nesBus.cpu->PC;
+        lineY = (nLines >> 1) * 10 + y;
+        if(currentPC != instructions.entries[MAP_LENGTH-1].address)
+        {
+            while(lineY > y) {
+                if(currentPC-- != instructions.entries[MAP_LENGTH-1].address && instructions.entries[currentPC].address  != 0 ) {
+                    lineY -= 10;
+                    drawText(instructions.entries[currentPC].instruction,
+                    x, lineY, textColor, stringDrawer);
+                }
             }
         }
     }
@@ -133,9 +154,9 @@ bus_nes nesBus{};
 
     void update(Util::Graphic::StringDrawer* stringDrawer, Util::Graphic::PixelDrawer* pixelDrawer){
         // Draw
-        drawRAM( 8, 2, 0x0000, 16, 16, stringDrawer);
-        drawRAM( 8, 172, 0x8000, 16, 16, stringDrawer);
-        drawCPU( 454, 2, stringDrawer);
+        drawRAM( 8, 2, 0x0000, 16, 16, stringDrawer, pixelDrawer);
+        drawRAM( 8, 172, 0x8000, 16, 16, stringDrawer, pixelDrawer);
+        drawCPU( 454, 2, stringDrawer, pixelDrawer);
 
         Util::Graphic::Color darkGreenColor(0, 60, 0, 255);
         for (int y = 70; y < 700; ++y) {
@@ -143,12 +164,11 @@ bus_nes nesBus{};
                 pixelDrawer->drawPixel(x, y, darkGreenColor);
             }
         }
-        drawInstructions(454, 72, 10, stringDrawer, pixelDrawer);
+        drawInstructions(454, 72, 26, stringDrawer, pixelDrawer);
     };
 
 
-    void load_program(const Util::String &program, uint16_t start_address) {
-        uint16_t nOffset = start_address;
+    uint32_t load_program(const Util::String &program, uint16_t nOffset) {
 
         // Split the program string by spaces
         Util::Array<Util::String> tokens = program.split(" ");
@@ -157,14 +177,15 @@ bus_nes nesBus{};
             // Convert each token from hex string to uint8_t and store in RAM
             nesBus.busBase->ram[nOffset++] = (uint8_t)Util::String::parseHexInt(tokens[i]);
         }
+        return tokens.length();
     }
 
     // main loop
     int main(){
-        bus *b = new bus();
-        bInit(&nesBus, b);
-        cInit(nesBus.cpu);
-        connectBus(nesBus.cpu, b);
+
+        cInit(&cpu);
+
+        bInit(&nesBus, &b, &cpu);
 
 
         Util::String program = "A2 0A 8E 00 00 A2 03 8E 01 00 AC 00 00 A9 00 18 6D 01 00 88 D0 FA 8D 02 00 EA EA EA";
@@ -177,6 +198,9 @@ bus_nes nesBus{};
 
         // disassembly
         instructions = disassemble(0x0000, 0xFFFF, nesBus.busBase);
+
+        // reset cpu
+        reset(nesBus.cpu);
 
 
         Util::Io::File lfbFile("/device/lfb");
@@ -201,6 +225,8 @@ bus_nes nesBus{};
             }
         }
 
+
+
         update(&stringDrawer, &pixelDrawer);
         while (true) {
             auto keyCode = Util::System::in.read();
@@ -213,7 +239,10 @@ bus_nes nesBus{};
                     switch (key.getScancode()) {
                         // Space for cpu.clock() loop until complete
                         case Util::Io::Key::SPACE:
+                            do{
                             advanceClock(nesBus.cpu);
+                            }
+                            while(!complete(nesBus.cpu));
                             update(&stringDrawer, &pixelDrawer);
                             break;
 

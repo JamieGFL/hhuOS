@@ -29,7 +29,6 @@ static instruction lookupTable [256]= {
 
 
 void cInit(cpu6502* cpu) {
-    cpu->nesBus = NULL;
     cpu->A = 0x00;
     cpu->X = 0x00;
     cpu->Y = 0x00;
@@ -943,6 +942,12 @@ Instruction_Map createMap() {
     Instruction_Map map;
     map.count = 0;
     map.capacity = MAP_LENGTH;
+    // fill
+    for (auto & entry : map.entries) {
+        entry.address = 0;
+        strcpy(entry.instruction, "\0");
+        //entry.instruction = "\0";
+    }
     return map;
 }
 
@@ -950,10 +955,9 @@ void destroyMap() {
 }
 
 void addInstruction(Instruction_Map *map, uint16_t address,char *instruction) {
-    map->entries[map->count].address = address;
-    map->entries[map->count].instruction = instruction;
-    map->entries[map->count].instruction[MAX_INSTRUCTION_LENGTH - 1] = '\0';
-    map->count++;
+    map->entries[address].address = address;
+    strncpy(map->entries[address].instruction, instruction, MAX_INSTRUCTION_LENGTH);
+    map->entries[address].instruction[MAX_INSTRUCTION_LENGTH - 1] = '\0';
 }
 
 void hex(uint32_t intValue, uint8_t length, char* hexstring){
@@ -1078,6 +1082,7 @@ Instruction_Map disassemble(uint16_t nStart, uint16_t nStop, bus *bus) {
 
         // Add the formed instruction string to the map
         addInstruction(&map, line_addr, sInst);
+
     }
 
     return map;
