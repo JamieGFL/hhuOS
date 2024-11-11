@@ -19,10 +19,12 @@
 #include "lib/util/io/file/File.h"
 #include "lib/util/graphic/Ansi.h"
 #include "bus_nes.h"
+#include "lib/util/io/stream/FileInputStream.h"
 
 static cpu6502 cpu;
 static  bus_nes nesBus;
 static bus b;
+int pause;
 
     Instruction_Map instructions{};
     const unsigned int VIDEO_HEIGHT = 32;
@@ -167,7 +169,7 @@ static bus b;
         drawInstructions(454, 72, 26, stringDrawer, pixelDrawer);
     };
 
-
+    // load with string of hex values
     uint32_t load_program(const Util::String &program, uint16_t nOffset) {
 
         // Split the program string by spaces
@@ -180,17 +182,46 @@ static bus b;
         return tokens.length();
     }
 
+    // load rom
+    uint32_t load_rom(char const* filename, uint16_t nOffset) {
+        Util::Io::File file(filename);
+        Util::Io::FileInputStream fileStream(file);
+
+        uint32_t fileSize = file.getLength();
+        if (fileSize == 0) {
+            return 0;
+        }
+
+        char *buffer = new char[fileSize];
+        int bytesRead = fileStream.read(reinterpret_cast<uint8_t*>(buffer), 0, fileSize);
+
+        if (bytesRead > 0)
+        {
+            for (uint32_t i = 0; i < fileSize; i++) {
+                nesBus.busBase->ram[nOffset++] = buffer[i];
+            }
+        }
+
+        delete[] buffer;
+
+        return fileSize;
+    }
+
+
     // main loop
-    int main(){
+    int main(int argc, char ** argv){
 
         cInit(&cpu);
 
         bInit(&nesBus, &b, &cpu);
 
-
-        Util::String program = "A2 0A 8E 00 00 A2 03 8E 01 00 AC 00 00 A9 00 18 6D 01 00 88 D0 FA 8D 02 00 EA EA EA";
-        uint16_t nOffset = 0x8000;  // Starting address
-        load_program(program, nOffset);
+        if(argc > 1){
+            load_rom(argv[1], 0x8000);
+        } else
+        {
+            Util::String program = "A2 0A 8E 00 00 A2 03 8E 01 00 AC 00 00 A9 00 18 6D 01 00 88 D0 FA 8D 02 00 EA EA EA";
+            load_program(program, 0x8000);
+        }
 
         // Reset Vector, CPU will start execution from this address > 0x8000
         nesBus.busBase->ram[0xFFFC] = 0x00;
@@ -225,7 +256,7 @@ static bus b;
             }
         }
 
-
+        pause = 0;
 
         update(&stringDrawer, &pixelDrawer);
         while (true) {
@@ -246,19 +277,28 @@ static bus b;
                             update(&stringDrawer, &pixelDrawer);
                             break;
 
+                            // D key for running cpu
+                        case Util::Io::Key::D:
+                            pause = 0;
+                            break;
+
+                            // S key for pause
+                        case Util::Io::Key::S:
+                            pause = 1;
+                            break;
                             // 'R' key for cpu.reset()
                         case Util::Io::Key::R:
                             reset(nesBus.cpu);
                             update(&stringDrawer, &pixelDrawer);
                             break;
 
-                            // 'I' key for cpu.irq()
+                            // 'Q' key for cpu.irq()
                         case Util::Io::Key::Q:
                             irq(nesBus.cpu);
                             update(&stringDrawer, &pixelDrawer);
                             break;
 
-                            // 'N' key for cpu.nmi()
+                            // 'W' key for cpu.nmi()
                         case Util::Io::Key::W:
                             nmi(nesBus.cpu);
                             update(&stringDrawer, &pixelDrawer);
@@ -271,6 +311,11 @@ static bus b;
                             break;
                     }
                 }
+            }
+            if(pause == 0)
+            {
+                advanceClock(nesBus.cpu);
+                update(&stringDrawer, &pixelDrawer);
             }
         }
 
