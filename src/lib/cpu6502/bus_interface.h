@@ -10,7 +10,7 @@ typedef struct bus {
     // Read from memory
     uint8_t (*bRead)(struct bus* b, uint16_t addr, int readOnly);
 
-    // Fake RAM (64KB)
+    // 2KB RAM
     uint8_t ram[64 * 1024];
 } bus;
 

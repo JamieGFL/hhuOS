@@ -3,11 +3,13 @@
 
 #include <stdint.h>
 #include "lib/cpu6502/cpu6502.h"
+#include "ppu2C02.h"
 
 
 typedef struct {
     // components
     cpu6502* cpu;
+    ppu2C02* ppu;
 
     // bus
     bus* busBase;
@@ -22,6 +24,7 @@ void bInit(bus_nes* b, bus* bus, cpu6502* cpu);
 
 void nes_bus_Write(bus* b, uint16_t addr, uint8_t val);
 uint8_t nes_bus_Read(bus* b, uint16_t addr, int readOnly);
+void setBus(bus_nes *b);
 
 #ifdef __cplusplus
 }

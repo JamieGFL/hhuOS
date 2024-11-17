@@ -6,7 +6,8 @@ include_directories(${HHUOS_SRC_DIR})
 
 # Set source files
 set(SOURCE_FILES
-        ${HHUOS_SRC_DIR}/application/nes/bus_nes.c ${HHUOS_SRC_DIR}/application/nes/cpuTesting.cpp)
+        ${HHUOS_SRC_DIR}/application/nes/ppu2C02.c ${HHUOS_SRC_DIR}/application/nes/bus_nes.c
+        ${HHUOS_SRC_DIR}/application/nes/cpuTesting.cpp )
 
 add_executable(${PROJECT_NAME} ${SOURCE_FILES})
 

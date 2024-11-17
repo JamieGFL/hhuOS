@@ -212,8 +212,8 @@ int pause;
     int main(int argc, char ** argv){
 
         cInit(&cpu);
-
         bInit(&nesBus, &b, &cpu);
+        setBus(&nesBus);
 
         if(argc > 1){
             load_rom(argv[1], 0x8000);
