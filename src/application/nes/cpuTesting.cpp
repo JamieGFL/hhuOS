@@ -20,10 +20,12 @@
 #include "lib/util/graphic/Ansi.h"
 #include "bus_nes.h"
 #include "lib/util/io/stream/FileInputStream.h"
+#include "cartridge.h"
 
 static cpu6502 cpu;
 static  bus_nes nesBus;
 static bus b;
+static cartridge cart;
 int pause;
 
     Instruction_Map instructions{};
