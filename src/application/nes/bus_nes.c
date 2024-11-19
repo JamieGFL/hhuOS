@@ -5,7 +5,7 @@ static bus_nes* nesBus;
 void nes_bus_Write(bus* b, uint16_t addr, uint8_t val);
 uint8_t nes_bus_Read(bus* b, uint16_t addr, int readOnly);
 
-void bInit(bus_nes* b, bus* bus, cpu6502* cpu) {
+void bInit(bus_nes* b, bus* bus, cpu6502* cpu, ppu2C02* ppu) {
     b->busBase = bus;
 
     // set function pointers
@@ -15,8 +15,11 @@ void bInit(bus_nes* b, bus* bus, cpu6502* cpu) {
     for (unsigned int i = 0; i < sizeof(b->busBase->ram); i++) {
         b->busBase->ram[i] = 0x00;
     }
-
     b->cpu = cpu;
+    b->ppu = ppu;
+
+   // b->cpu = cpu;
+
 
     connectBus(b->cpu, b->busBase);
 }
@@ -42,7 +45,7 @@ void nes_bus_Write(bus* b, uint16_t addr, uint8_t val) {
 uint8_t nes_bus_Read(bus* b, uint16_t addr, int readOnly) {
     uint8_t data = 0x00;
 
-    if(cartCpuRead(nesBus->cpu, nesBus->cart, addr)){
+    if(cartCpuRead(nesBus->cpu, nesBus->cart, addr, &data)){
         // do nothing
     }
     else if(addr <= 0x1FFF){
@@ -70,7 +73,21 @@ void busReset(bus_nes* b) {
 }
 
 void busClock(bus_nes* b) {
-    b->cart->clock();
-    b->cpu->clock();
-    b->cpu->clock();
+    ppuClock(b->ppu);
+    if(b->clockCount % 3 == 0) {
+        cpuClock(b->cpu);
+    }
+    b->clockCount++;
+}
+
+image* getScreenImage(bus_nes* b){
+    return b->ppu->screen;
+}
+
+bool frameComplete(bus_nes* b){
+    return b->ppu->frameComplete;
+}
+
+void setFrameComplete(bus_nes* b, bool complete){
+    b->ppu->frameComplete = complete;
 }

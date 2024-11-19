@@ -2,7 +2,6 @@
 #define HHUOS_MAPPER000_H
 #include <stdint.h>
 #include "mapper.h"
-#include "ppu2C02.h"
 
 #ifdef __cplusplus
 extern "C" {

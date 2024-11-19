@@ -62,7 +62,7 @@ void cartridgeInit(cartridge* cartridgeIn, const char* filename){
     // load mapper
     switch(cartridgeIn->cMapperId){
         case 0: {
-            mapperInit(cartridgeIn->mapper, cartridgeIn->cPRGBanks, cartridgeIn->cCHRBanks);
+            mapperInit(cartridgeIn->map, cartridgeIn->cPRGBanks, cartridgeIn->cCHRBanks);
             break;
         }
     }
@@ -72,7 +72,7 @@ void cartridgeInit(cartridge* cartridgeIn, const char* filename){
 
 int cartCpuRead(cpu6502* cpu, cartridge* cart, uint16_t addr, uint8_t* data){
     uint32_t mappedAddr = 0;
-    if(cpuMapRead(cart->mapper, addr, &mappedAddr)){
+    if(cpuMapRead(cart->map, addr, &mappedAddr)){
         data = &cart->prg.data[mappedAddr];
         return 1;
     }
@@ -83,7 +83,7 @@ int cartCpuRead(cpu6502* cpu, cartridge* cart, uint16_t addr, uint8_t* data){
 
 int cartCpuWrite(cpu6502* cpu, cartridge* cart, uint16_t addr, uint8_t val){
     uint32_t mappedAddr = 0;
-    if(cpuMapWrite(cart->mapper, addr, &mappedAddr)){
+    if(cpuMapWrite(cart->map, addr, &mappedAddr)){
         cart->prg.data[mappedAddr] = val;
         return 1;
     }
@@ -94,7 +94,7 @@ int cartCpuWrite(cpu6502* cpu, cartridge* cart, uint16_t addr, uint8_t val){
 
 int cartPpuRead(ppu2C02* ppuIn, cartridge* cart, uint16_t addr, uint8_t* data){
     uint32_t mappedAddr = 0;
-    if(ppuMapRead(cart->mapper, ppuIn, addr, &mappedAddr)){
+    if(ppuMapRead(cart->map, ppuIn, addr, &mappedAddr)){
         data = &cart->chr.data[mappedAddr];
         return 1;
     }
@@ -105,7 +105,7 @@ int cartPpuRead(ppu2C02* ppuIn, cartridge* cart, uint16_t addr, uint8_t* data){
 
 int cartPpUWrite(ppu2C02* ppuIn, cartridge* cart, uint16_t addr, uint8_t val){
     uint32_t mappedAddr = 0;
-    if(ppuMapWrite(cart->mapper, ppuIn, addr, &mappedAddr)){
+    if(ppuMapWrite(cart->map, ppuIn, addr, &mappedAddr)){
         cart->chr.data[mappedAddr] = val;
         return 1;
     }

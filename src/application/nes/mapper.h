@@ -3,6 +3,7 @@
 #include <stdint.h>
 #include "ppu2C02.h"
 
+typedef struct ppu2C02 ppu2C02;
 typedef struct mapper {
     uint8_t prgBanks;
     uint8_t chrBanks;

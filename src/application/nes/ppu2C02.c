@@ -1,7 +1,102 @@
 #include "ppu2C02.h"
 #include "cartridge.h"
 
-void ppuInit(ppu2C02* ppuIn);
+static inline pixel createPixel(uint8_t r, uint8_t g, uint8_t b, uint8_t a);
+static inline int pixelEquals(pixel p1, pixel p2);
+
+static inline image* createImage(int32_t width, int32_t height);
+void freeImage(image* img);
+
+static inline int setImagePixel(image* img, int32_t x, int32_t y, pixel p);
+static inline pixel getImagePixel(image* img, int32_t x, int32_t y);
+
+void ppuInit(ppu2C02* ppuIn){
+    ppuIn->paletteScreen[0x00] = createPixel(84, 84, 84, 255);
+    ppuIn->paletteScreen[0x01] = createPixel(0, 30, 116, 255);
+    ppuIn->paletteScreen[0x02] = createPixel(8, 16, 144, 255);
+    ppuIn->paletteScreen[0x03] = createPixel(48, 0, 136, 255);
+    ppuIn->paletteScreen[0x04] = createPixel(68, 0, 100, 255);
+    ppuIn->paletteScreen[0x05] = createPixel(92, 0, 48, 255);
+    ppuIn->paletteScreen[0x06] = createPixel(84, 4, 0, 255);
+    ppuIn->paletteScreen[0x07] = createPixel(60, 24, 0, 255);
+    ppuIn->paletteScreen[0x08] = createPixel(32, 42, 0, 255);
+    ppuIn->paletteScreen[0x09] = createPixel(8, 58, 0, 255);
+    ppuIn->paletteScreen[0x0A] = createPixel(0, 64, 0, 255);
+    ppuIn->paletteScreen[0x0B] = createPixel(0, 60, 0, 255);
+    ppuIn->paletteScreen[0x0C] = createPixel(0, 50, 60, 255);
+    ppuIn->paletteScreen[0x0D] = createPixel(0, 0, 0, 255);
+    ppuIn->paletteScreen[0x0E] = createPixel(0, 0, 0, 255);
+    ppuIn->paletteScreen[0x0F] = createPixel(0, 0, 0, 255);
+
+    ppuIn->paletteScreen[0x10] = createPixel(152, 150, 152, 255);
+    ppuIn->paletteScreen[0x11] = createPixel(8, 76, 196, 255);
+    ppuIn->paletteScreen[0x12] = createPixel(48, 50, 236, 255);
+    ppuIn->paletteScreen[0x13] = createPixel(92, 30, 228, 255);
+    ppuIn->paletteScreen[0x14] = createPixel(136, 20, 176, 255);
+    ppuIn->paletteScreen[0x15] = createPixel(160, 20, 100, 255);
+    ppuIn->paletteScreen[0x16] = createPixel(152, 34, 32, 255);
+    ppuIn->paletteScreen[0x17] = createPixel(120, 60, 0, 255);
+    ppuIn->paletteScreen[0x18] = createPixel(84, 90, 0, 255);
+    ppuIn->paletteScreen[0x19] = createPixel(40, 114, 0, 255);
+    ppuIn->paletteScreen[0x1A] = createPixel(8, 124, 0, 255);
+    ppuIn->paletteScreen[0x1B] = createPixel(0, 118, 40, 255);
+    ppuIn->paletteScreen[0x1C] = createPixel(0, 102, 120, 255);
+    ppuIn->paletteScreen[0x1D] = createPixel(0, 0, 0, 255);
+    ppuIn->paletteScreen[0x1E] = createPixel(0, 0, 0, 255);
+    ppuIn->paletteScreen[0x1F] = createPixel(0, 0, 0, 255);
+
+    ppuIn->paletteScreen[0x20] = createPixel(236, 238, 236, 255);
+    ppuIn->paletteScreen[0x21] = createPixel(76, 154, 236, 255);
+    ppuIn->paletteScreen[0x22] = createPixel(120, 124, 236, 255);
+    ppuIn->paletteScreen[0x23] = createPixel(176, 98, 236, 255);
+    ppuIn->paletteScreen[0x24] = createPixel(228, 84, 236, 255);
+    ppuIn->paletteScreen[0x25] = createPixel(236, 88, 180, 255);
+    ppuIn->paletteScreen[0x26] = createPixel(236, 106, 100, 255);
+    ppuIn->paletteScreen[0x27] = createPixel(212, 136, 32, 255);
+    ppuIn->paletteScreen[0x28] = createPixel(160, 170, 0, 255);
+    ppuIn->paletteScreen[0x29] = createPixel(116, 196, 0, 255);
+    ppuIn->paletteScreen[0x2A] = createPixel(76, 208, 32, 255);
+    ppuIn->paletteScreen[0x2B] = createPixel(56, 204, 108, 255);
+    ppuIn->paletteScreen[0x2C] = createPixel(56, 180, 204, 255);
+    ppuIn->paletteScreen[0x2D] = createPixel(60, 60, 60, 255);
+    ppuIn->paletteScreen[0x2E] = createPixel(0, 0, 0, 255);
+    ppuIn->paletteScreen[0x2F] = createPixel(0, 0, 0, 255);
+
+    ppuIn->paletteScreen[0x30] = createPixel(236, 238, 236, 255);
+    ppuIn->paletteScreen[0x31] = createPixel(168, 204, 236, 255);
+    ppuIn->paletteScreen[0x32] = createPixel(188, 188, 236, 255);
+    ppuIn->paletteScreen[0x33] = createPixel(212, 178, 236, 255);
+    ppuIn->paletteScreen[0x34] = createPixel(236, 174, 236, 255);
+    ppuIn->paletteScreen[0x35] = createPixel(236, 174, 212, 255);
+    ppuIn->paletteScreen[0x36] = createPixel(236, 180, 176, 255);
+    ppuIn->paletteScreen[0x37] = createPixel(228, 196, 144, 255);
+    ppuIn->paletteScreen[0x38] = createPixel(204, 210, 120, 255);
+    ppuIn->paletteScreen[0x39] = createPixel(180, 222, 120, 255);
+    ppuIn->paletteScreen[0x3A] = createPixel(168, 226, 144, 255);
+    ppuIn->paletteScreen[0x3B] = createPixel(152, 226, 180, 255);
+    ppuIn->paletteScreen[0x3C] = createPixel(160, 214, 228, 255);
+    ppuIn->paletteScreen[0x3D] = createPixel(160, 162, 160, 255);
+    ppuIn->paletteScreen[0x3E] = createPixel(0, 0, 0, 255);
+    ppuIn->paletteScreen[0x3F] = createPixel(0, 0, 0, 255);
+
+    ppuIn->screen = createImage(256, 240);
+    ppuIn->image_nametable[0] = createImage(256, 240);
+    ppuIn->image_nametable[1] = createImage(256, 240);
+    ppuIn->image_patternTable[0] = createImage(128, 128);
+    ppuIn->image_patternTable[1] = createImage(128, 128);
+
+    ppuIn->scanline = 0;
+    ppuIn->cycle = 0;
+    ppuIn->frameComplete = false;
+}
+
+void ppuDestroy(ppu2C02* ppuIn){
+    freeImage(ppuIn->screen);
+    freeImage(ppuIn->image_nametable[0]);
+    freeImage(ppuIn->image_nametable[1]);
+    freeImage(ppuIn->image_patternTable[0]);
+    freeImage(ppuIn->image_patternTable[1]);
+}
 
 uint8_t ppuCpuRead(cpu6502* cpu, ppu2C02* ppuIn, uint16_t addr, int readOnly){
     uint8_t data = 0x00;
@@ -54,7 +149,7 @@ uint8_t ppuRead(ppu2C02* ppuIn, uint16_t addr, int readOnly){
     uint8_t data = 0x00;
     addr &= 0x3FFF;
 
-    if(cartPpuRead(ppuIn, ppuIn->cart, addr)){
+    if(cartPpuRead(ppuIn, ppuIn->cart, addr, &data)){
         // do nothing
     }
 
@@ -62,7 +157,7 @@ uint8_t ppuRead(ppu2C02* ppuIn, uint16_t addr, int readOnly){
 }
 void ppuWrite(ppu2C02* ppuIn, uint16_t addr, uint8_t val){
 
-    if(ppuIn->cart->cartPpUWrite(ppuIn, ppuIn->cart, addr, val)){
+    if(cartPpUWrite(ppuIn, ppuIn->cart, addr, val)){
         // do nothing
     }
 
@@ -72,3 +167,66 @@ void ppuWrite(ppu2C02* ppuIn, uint16_t addr, uint8_t val){
 void connectCartridge(ppu2C02* ppuIn, cartridge* cart){
     ppuIn->cart = cart;
 }
+
+void ppuClock(ppu2C02* ppu) {
+    // Simulate rendering noise with black or white pixels
+    pixel randomPixel = ppu->paletteScreen[rand() % 2 ? 0x3F : 0x30];
+    setImagePixel(ppu->screen, ppu->cycle - 1, ppu->scanline, randomPixel);
+
+    // Advance the renderer
+    ppu->cycle++;
+    if (ppu->cycle >= 341) {
+        ppu->cycle = 0;
+        ppu->scanline++;
+        if (ppu->scanline >= 261) {
+            ppu->scanline = -1;
+            ppu->frameComplete = true;
+        }
+    }
+}
+
+
+// Image functions
+
+
+static inline pixel createPixel(uint8_t r, uint8_t g, uint8_t b, uint8_t a){
+    pixel p = {r, g, b, a};
+    return p;
+}
+
+static inline int pixelEquals(pixel p1, pixel p2){
+    return p1.r == p2.r && p1.g == p2.g && p1.b == p2.b && p1.a == p2.a;
+}
+
+static inline image* createImage(int32_t width, int32_t height){
+    image* img = (image*)malloc(sizeof(image));
+    if(img)
+    {
+        img->width = width;
+        img->height = height;
+        img->data = (pixel *) calloc(width * height, sizeof(pixel));
+    }
+    return img;
+}
+void freeImage(image* img){
+    if(img) {
+        free(img->data);
+        free(img);
+    }
+}
+
+static inline int setImagePixel(image* img, int32_t x, int32_t y, pixel p){
+    if (x >= 0 && x < img->width && y >= 0 && y < img->height) {
+        img->data[y * img->width + x] = p;
+        return 1; // Success
+    }
+    return 0; // Out of bounds
+}
+
+static inline pixel getImagePixel(image* img, int32_t x, int32_t y){
+    if (x >= 0 && x < img->width && y >= 0 && y < img->height) {
+        return img->data[y * img->width + x];
+    }
+    return createPixel(0, 0, 0, 0); // Out of bounds
+}
+

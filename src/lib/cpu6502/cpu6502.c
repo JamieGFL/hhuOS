@@ -75,7 +75,7 @@ void setFlag(cpu6502* cpu, CPUFLAGS flag, int val) {
 
 
 
-void advanceClock(cpu6502* cpu) {
+void cpuClock(cpu6502* cpu) {
     if (cpu->cycles == 0) {
         cpu->opcode = cRead(cpu,cpu->PC);
         cpu->PC++;

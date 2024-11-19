@@ -1,9 +1,10 @@
 #ifndef HHUOS_CARTRIDGE_H
 #define HHUOS_CARTRIDGE_H
 #include "lib/cpu6502/cpu6502.h"
-#include "ppu2C02.h"
 #include "mapper.h"
 
+typedef struct ppu2C02 ppu2C02;
+typedef struct mapper mapper;
 typedef struct {
     uint8_t *data;
     uint32_t size;
@@ -19,7 +20,7 @@ typedef struct cartridge {
     uint8_t cCHRBanks;
 
     // mapper
-    mapper* mapper;
+    mapper* map;
 } cartridge;
 
 #ifdef __cplusplus

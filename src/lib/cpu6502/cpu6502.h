@@ -55,7 +55,7 @@ uint8_t cRead(cpu6502* cpu, uint16_t addr);
 // read from memory through bus
 void cWrite(cpu6502* cpu, uint16_t addr, uint8_t val);
 
-void advanceClock(cpu6502* cpu); // Clock function for clock cycles to occur
+void cpuClock(cpu6502* cpu); // Clock function for clock cycles to occur
 void reset(cpu6502* cpu); // Reset Signal
 void irq(cpu6502* cpu); // Interrupt Request Signal
 void nmi(cpu6502* cpu); // Non-Maskable Interrupt Request Signal
