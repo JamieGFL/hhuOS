@@ -3,6 +3,8 @@
 #include <stdlib.h>
 #include <stdio.h>
 
+static mapper map;
+
 void allocateMemory(memoryChunk* mem, uint32_t size){
     mem->data = (uint8_t*)malloc(size);
     mem->size = size;
@@ -45,6 +47,8 @@ void cartridgeInit(cartridge* cartridgeIn, const char* filename){
     if(fileType == 0){
     }
     else if(fileType == 1){
+        cartridgeIn->map = &map;
+
         cartridgeIn->cPRGBanks = header.prg_rom_chunks;
         cartridgeIn->cCHRBanks = header.chr_rom_chunks;
 
@@ -73,7 +77,7 @@ void cartridgeInit(cartridge* cartridgeIn, const char* filename){
 int cartCpuRead(cpu6502* cpu, cartridge* cart, uint16_t addr, uint8_t* data){
     uint32_t mappedAddr = 0;
     if(cpuMapRead(cart->map, addr, &mappedAddr)){
-        data = &cart->prg.data[mappedAddr];
+        *data = cart->prg.data[mappedAddr];
         return 1;
     }
     else{
@@ -95,7 +99,7 @@ int cartCpuWrite(cpu6502* cpu, cartridge* cart, uint16_t addr, uint8_t val){
 int cartPpuRead(ppu2C02* ppuIn, cartridge* cart, uint16_t addr, uint8_t* data){
     uint32_t mappedAddr = 0;
     if(ppuMapRead(cart->map, ppuIn, addr, &mappedAddr)){
-        data = &cart->chr.data[mappedAddr];
+        *data = cart->chr.data[mappedAddr];
         return 1;
     }
     else{

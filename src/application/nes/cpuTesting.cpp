@@ -100,11 +100,11 @@ void drawCPU(int x, int y, Util::Graphic::StringDrawer* stringDrawer, Util::Grap
     Util::Graphic::Color darkGreenColor(0, 60, 0, 255);
 
     // clear CPU area
-    for (int i = 0; i < 70; ++i) {
-        for (int j = 0; j < 200; ++j) {
-            pixelDrawer->drawPixel(x + j, y + 20 + i, darkGreenColor);
-        }
-    }
+    // for (int i = 0; i < 70; ++i) {
+    //     for (int j = 0; j < 200; ++j) {
+    //         pixelDrawer->drawPixel(x + j, y + 20 + i, darkGreenColor);
+    //     }
+    // }
 
 
     // Draw register values
@@ -121,11 +121,11 @@ void drawInstructions(int x, int y, int nLines, Util::Graphic::StringDrawer* str
 
     Util::Graphic::Color darkGreenColor(0, 60, 0, 255);
     // clear instruction area
-    for (int i = 0; i < nLines + 1000; ++i) {
-        for (int j = 0; j < 1000; ++j) {
-            pixelDrawer->drawPixel(x + j, y + i * 10, darkGreenColor);
-        }
-    }
+    // for (int i = 0; i < nLines + 1000; ++i) {
+    //     for (int j = 0; j < 1000; ++j) {
+    //         pixelDrawer->drawPixel(x + j, y + i * 10, darkGreenColor);
+    //     }
+    // }
 
     auto currentPC = nesBus.cpu->PC;
     int lineY = (nLines >> 1) * 10 + y;
@@ -156,12 +156,16 @@ void drawInstructions(int x, int y, int nLines, Util::Graphic::StringDrawer* str
     }
 }
 
-void drawImage(int x, int y, int width, int height, image* img, Util::Graphic::PixelDrawer* pixelDrawer){
+void drawImage(int x, int y, int width, int height, image* img, Util::Graphic::PixelDrawer* pixelDrawer, int scale = 1){
 
     for (int i = 0; i < height; ++i) {
         for (int j = 0; j < width; ++j) {
             Util::Graphic::Color color(img->data[i * width + j].r, img->data[i * width + j].g, img->data[i * width + j].b, img->data[i * width + j].a);
-            pixelDrawer->drawPixel(x + j, y + i, color);
+            for (int dy = 0; dy < scale; ++dy) {
+                for (int dx = 0; dx < scale; ++dx) {
+                    pixelDrawer->drawPixel(x + j * scale + dx, y + i * scale + dy, color);
+                }
+            }
         }
     }
 }
@@ -170,17 +174,20 @@ void update(Util::Graphic::StringDrawer* stringDrawer, Util::Graphic::PixelDrawe
     // Draw
     //drawRAM( 8, 2, 0x0000, 16, 16, stringDrawer, pixelDrawer);
     //drawRAM( 8, 172, 0x8000, 16, 16, stringDrawer, pixelDrawer);
-    drawCPU( 454, 2, stringDrawer, pixelDrawer);
+    drawCPU( 540, 2, stringDrawer, pixelDrawer);
 
-    Util::Graphic::Color darkGreenColor(0, 60, 0, 255);
-    for (int y = 70; y < 700; ++y) {
-        for (int x = 450; x < 800; ++x) {
-            pixelDrawer->drawPixel(x, y, darkGreenColor);
-        }
-    }
-    drawInstructions(454, 72, 26, stringDrawer, pixelDrawer);
+    // Util::Graphic::Color darkGreenColor(0, 60, 0, 255);
+    // for (int y = 70; y < 700; ++y) {
+    //     for (int x = 450; x < 800; ++x) {
+    //         pixelDrawer->drawPixel(x, y, darkGreenColor);
+    //     }
+    // }
+    Util::Graphic::Ansi::clearScreen();
 
-    drawImage(0, 0, 256, 240, getScreenImage(&nesBus), pixelDrawer);
+    // x 454, y 72
+    drawInstructions(540, 72, 26, stringDrawer, pixelDrawer);
+
+    drawImage(0, 20, 256, 240, getScreenImage(&nesBus), pixelDrawer, 2);
 };
 
 // load with string of hex values
@@ -240,6 +247,9 @@ int main(int argc, char ** argv){
         insertCartridge(&nesBus, &cart);
     }
 
+    nesBus.busBase->ram[0xFFFC] = 0x00;
+    nesBus.busBase->ram[0xFFFD] = 0x80;
+
     // disassembly
     instructions = disassemble(0x0000, 0xFFFF, nesBus.busBase);
 
@@ -260,6 +270,7 @@ int main(int argc, char ** argv){
 
     // Colors
     Util::Graphic::Color darkGreenColor(0, 60, 0, 255); // RGB(0, 100, 0) with full opacity
+    Util::Graphic::Color black(0, 0, 0, 255); // RGB(0, 0, 0) with full opacity
 
     // Fill the entire screen with dark green
     for (int y = 0; y < 700; ++y) {
@@ -286,6 +297,12 @@ int main(int argc, char ** argv){
                 timeLeft += (1.0f / 60.0f) - elapsedTime;
                 do (busClock(&nesBus)); while (!frameComplete(&nesBus));
                 setFrameComplete(&nesBus, false);
+                update(&stringDrawer, &pixelDrawer);
+            }
+            if (keyCode != -1 && keyDecoder.parseScancode(keyCode)) {
+                if (key.isPressed() && key.getScancode() == Util::Io::Key::SPACE) {
+                    running = !running;
+                }
             }
         }
         else {
@@ -302,7 +319,7 @@ int main(int argc, char ** argv){
                 if (key.isPressed() && key.getScancode() == Util::Io::Key::F) {
                     do {
                         busClock(&nesBus);
-                    } while (frameComplete(&nesBus));
+                    } while (!frameComplete(&nesBus));
                     do {
                         busClock(&nesBus);
                     } while (!complete(nesBus.cpu));
@@ -322,6 +339,8 @@ int main(int argc, char ** argv){
         if(key.isPressed() && key.getScancode() == Util::Io::Key::ESC){
             return true;
         }
+
+
         end = clock();
     }
 
