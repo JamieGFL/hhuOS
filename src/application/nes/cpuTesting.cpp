@@ -29,9 +29,13 @@ static cartridge cart;
 bool running = false;
 float timeLeft = 0.0f;
 
+uint8_t palette = 0x00;
+
 Instruction_Map instructions{};
 const unsigned int VIDEO_HEIGHT = 32;
 const unsigned int VIDEO_WIDTH = 64;
+
+Util::Graphic::Color clearColor(0, 60, 0, 255); // dark green
 
 static Util::String hex(uint32_t intValue, uint8_t length){
     Util::String hexstring("00000000");
@@ -53,10 +57,9 @@ void drawRAM(int x, int y, uint16_t addr, int rows, int columns, Util::Graphic::
     Util::Graphic::Color textColor(255, 255, 255); // White color for text
 
     //clear RAM area
-    Util::Graphic::Color darkGreenColor(0, 60, 0, 255);
     for (int i = 0; i < rows * 15; ++i) {
         for (int j = 0; j < columns * 15; ++j) {
-            pixelDrawer->drawPixel(x + j, y + i, darkGreenColor);
+            pixelDrawer->drawPixel(x + j, y + i, clearColor);
         }
     }
 
@@ -76,6 +79,13 @@ void drawCPU(int x, int y, Util::Graphic::StringDrawer* stringDrawer, Util::Grap
     Util::Graphic::Color activeColor(0, 255, 0);   // Green for active flags
     Util::Graphic::Color inactiveColor(255, 0, 0); // Red for inactive flags
     Util::Graphic::Color textColor(255, 255, 255);     // White for text
+
+    // clear CPU area
+    for (int i = 0; i < 200; ++i) {
+        for (int j = 0; j < 50; ++j) {
+            pixelDrawer->drawPixel(x + i, y + j, clearColor);
+        }
+    }
 
     drawText(Util::String("STATUS:"), x, y, textColor, stringDrawer);
 
@@ -97,15 +107,6 @@ void drawCPU(int x, int y, Util::Graphic::StringDrawer* stringDrawer, Util::Grap
         flagX += 16;
     }
 
-    Util::Graphic::Color darkGreenColor(0, 60, 0, 255);
-
-    // clear CPU area
-    // for (int i = 0; i < 70; ++i) {
-    //     for (int j = 0; j < 200; ++j) {
-    //         pixelDrawer->drawPixel(x + j, y + 20 + i, darkGreenColor);
-    //     }
-    // }
-
 
     // Draw register values
     drawText(Util::String("PC: $") + hex(nesBus.cpu->PC, 4), x, y + 20, textColor, stringDrawer);
@@ -119,13 +120,12 @@ void drawInstructions(int x, int y, int nLines, Util::Graphic::StringDrawer* str
     Util::Graphic::Color textColor(255, 255, 255); // White color for other instructions
     Util::Graphic::Color highlightColor(255, 255, 0); // Yellow color for the current instruction
 
-    Util::Graphic::Color darkGreenColor(0, 60, 0, 255);
-    // clear instruction area
-    // for (int i = 0; i < nLines + 1000; ++i) {
-    //     for (int j = 0; j < 1000; ++j) {
-    //         pixelDrawer->drawPixel(x + j, y + i * 10, darkGreenColor);
-    //     }
-    // }
+     //clear instruction area
+     for (int i = 0; i < 250; ++i) {
+         for (int j = 0; j < 270; ++j) {
+             pixelDrawer->drawPixel(x + i, y + j, clearColor);
+         }
+     }
 
     auto currentPC = nesBus.cpu->PC;
     int lineY = (nLines >> 1) * 10 + y;
@@ -176,17 +176,14 @@ void update(Util::Graphic::StringDrawer* stringDrawer, Util::Graphic::PixelDrawe
     //drawRAM( 8, 172, 0x8000, 16, 16, stringDrawer, pixelDrawer);
     drawCPU( 540, 2, stringDrawer, pixelDrawer);
 
-    // Util::Graphic::Color darkGreenColor(0, 60, 0, 255);
-    // for (int y = 70; y < 700; ++y) {
-    //     for (int x = 450; x < 800; ++x) {
-    //         pixelDrawer->drawPixel(x, y, darkGreenColor);
-    //     }
-    // }
-    Util::Graphic::Ansi::clearScreen();
-
     // x 454, y 72
     drawInstructions(540, 72, 26, stringDrawer, pixelDrawer);
 
+    // visualize pattern table
+    drawImage(540, 350, 60, 60, getPatternTableImage(nesBus.ppu, 0, palette), pixelDrawer, 2);
+    drawImage(672, 350, 60, 60, getPatternTableImage(nesBus.ppu, 1, palette), pixelDrawer, 2);
+
+    // draw screen
     drawImage(0, 20, 256, 240, getScreenImage(&nesBus), pixelDrawer, 2);
 };
 
@@ -269,13 +266,12 @@ int main(int argc, char ** argv){
     Util::Io::KeyDecoder keyDecoder(new Util::Io::DeLayout());
 
     // Colors
-    Util::Graphic::Color darkGreenColor(0, 60, 0, 255); // RGB(0, 100, 0) with full opacity
     Util::Graphic::Color black(0, 0, 0, 255); // RGB(0, 0, 0) with full opacity
 
     // Fill the entire screen with dark green
     for (int y = 0; y < 700; ++y) {
         for (int x = 0; x < 800; ++x) {
-            pixelDrawer.drawPixel(x, y, darkGreenColor);
+            pixelDrawer.drawPixel(x, y, clearColor);
         }
     }
 
@@ -336,6 +332,11 @@ int main(int argc, char ** argv){
             reset(nesBus.cpu);
             update(&stringDrawer, &pixelDrawer);
         }
+        if(key.isPressed() && key.getScancode() == Util::Io::Key::Q){
+            (++palette) &= 0x07;
+        }
+
+
         if(key.isPressed() && key.getScancode() == Util::Io::Key::ESC){
             return true;
         }

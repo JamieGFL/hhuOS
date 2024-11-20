@@ -152,6 +152,19 @@ uint8_t ppuRead(ppu2C02* ppuIn, uint16_t addr, int readOnly){
     if(cartPpuRead(ppuIn, ppuIn->cart, addr, &data)){
         // do nothing
     }
+    else if(addr >= 0x0000 && addr <= 0x1FFF){
+        data = ppuIn->patternTable[(addr & 0x1000) >> 12][addr & 0x0FFF];
+    }
+    else if(addr >= 0x2000 && addr <= 0x3EFF){
+    }
+    else if(addr >= 0x3F00 && addr <= 0x3FFF){
+        addr &= 0x001F;
+        if(addr == 0x0010) addr = 0x0000;
+        if(addr == 0x0014) addr = 0x0004;
+        if(addr == 0x0018) addr = 0x0008;
+        if(addr == 0x001C) addr = 0x000C;
+        data = ppuIn->palette[addr];
+    }
 
     return data;
 }
@@ -159,6 +172,19 @@ void ppuWrite(ppu2C02* ppuIn, uint16_t addr, uint8_t val){
 
     if(cartPpUWrite(ppuIn, ppuIn->cart, addr, val)){
         // do nothing
+    }
+    else if(addr >= 0x0000 && addr <= 0x1FFF){
+        ppuIn->patternTable[(addr & 0x1000) >> 12][addr & 0x0FFF] = val;
+    }
+    else if(addr >= 0x2000 && addr <= 0x3EFF){
+    }
+    else if(addr >= 0x3F00 && addr <= 0x3FFF){
+        addr &= 0x001F;
+        if(addr == 0x0010) addr = 0x0000;
+        if(addr == 0x0014) addr = 0x0004;
+        if(addr == 0x0018) addr = 0x0008;
+        if(addr == 0x001C) addr = 0x000C;
+        ppuIn->palette[addr] = val;
     }
 
     addr &= 0x3FFF;
@@ -228,5 +254,38 @@ static inline pixel getImagePixel(image* img, int32_t x, int32_t y){
         return img->data[y * img->width + x];
     }
     return createPixel(0, 0, 0, 0); // Out of bounds
+}
+
+// Debugging
+
+pixel getColorFromPalette(ppu2C02 *ppuIn, uint8_t palette, uint8_t pixel) {
+    return ppuIn->paletteScreen[ppuRead(ppuIn,0x3F00 + (palette << 2) + pixel, 0) & 0x3F];
+}
+image* getScreenImage(ppu2C02* ppuIn);
+image* getNametableImage(ppu2C02* ppuIn, int index);
+
+image* getPatternTableImage(ppu2C02* ppuIn, int index, uint8_t palette){
+    for (int yTile = 0; yTile < 16; ++yTile) {
+        for (int xTile = 0; xTile < 16; ++xTile) {
+            uint16_t offset = yTile * 256 + xTile * 16;
+
+            for (int row = 0; row < 8; ++row) {
+                uint8_t lsb = ppuRead(ppuIn, index * 0x1000 + offset + row + 0, false); // least significant bit, 0x1000 = 4 KB
+                uint8_t msb = ppuRead(ppuIn, index * 0x1000 + offset + row + 8, false); // most significant bit
+
+                for (int col = 0; col < 8; ++col) {
+                    uint8_t pixel = (lsb & 0x01) + (msb & 0x01);
+                    lsb >>= 1;
+                    msb >>= 1;
+
+                    setImagePixel(ppuIn->image_patternTable[index], xTile * 8 + (7 - col)
+                                  , yTile * 8 + row,
+                                  getColorFromPalette(ppuIn, palette, pixel));
+                }
+            }
+        }
+    }
+
+    return ppuIn->image_patternTable[index];
 }
 

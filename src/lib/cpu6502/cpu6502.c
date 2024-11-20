@@ -1008,35 +1008,35 @@ Instruction_Map disassemble(uint16_t nStart, uint16_t nStop, bus *bus) {
             value = bus->bRead(bus, addr, 1); addr++;
             char value_buf[3];
             hex(value, 2, value_buf);
-            snprintf(sInst + strlen(sInst), sizeof(sInst) - strlen(sInst), "$%02X {ZP0}", value_buf);
+            snprintf(sInst + strlen(sInst), sizeof(sInst) - strlen(sInst), "$%s {ZP0}", value_buf);
         }
         else if (lookupTable[opcode].addressmode == &ZPX)
         {
             value = bus->bRead(bus, addr, 1); addr++;
             char value_buf[3];
             hex(value, 2, value_buf);
-            snprintf(sInst + strlen(sInst), sizeof(sInst) - strlen(sInst), "$%02X, X {ZPX}", value_buf);
+            snprintf(sInst + strlen(sInst), sizeof(sInst) - strlen(sInst), "$%s, X {ZPX}", value_buf);
         }
         else if (lookupTable[opcode].addressmode == &ZPY)
         {
             value = bus->bRead(bus, addr, 1); addr++;
             char value_buf[3];
             hex(value, 2, value_buf);
-            snprintf(sInst + strlen(sInst), sizeof(sInst) - strlen(sInst), "$%02X, Y {ZPY}", value_buf);
+            snprintf(sInst + strlen(sInst), sizeof(sInst) - strlen(sInst), "$%s, Y {ZPY}", value_buf);
         }
         else if (lookupTable[opcode].addressmode == &IZX)
         {
             value = bus->bRead(bus, addr, 1); addr++;
             char value_buf[3];
             hex(value, 2, value_buf);
-            snprintf(sInst + strlen(sInst), sizeof(sInst) - strlen(sInst), "($%02X, X) {IZX}", value);
+            snprintf(sInst + strlen(sInst), sizeof(sInst) - strlen(sInst), "($%s, X) {IZX}", value_buf);
         }
         else if (lookupTable[opcode].addressmode == &IZY)
         {
             value = bus->bRead(bus, addr, 1); addr++;
             char value_buf[3];
             hex(value, 2, value_buf);
-            snprintf(sInst + strlen(sInst), sizeof(sInst) - strlen(sInst), "($%02X), Y {IZY}", value_buf);
+            snprintf(sInst + strlen(sInst), sizeof(sInst) - strlen(sInst), "($%s), Y {IZY}", value_buf);
         }
         else if (lookupTable[opcode].addressmode == &ABS)
         {
@@ -1076,7 +1076,7 @@ Instruction_Map disassemble(uint16_t nStart, uint16_t nStop, bus *bus) {
             char value_buf[3];
             hex(value, 2, value_buf);
             char value_buf2[5];
-            hex(addr + value, 4, value_buf2);
+            hex(addr + (int8_t)value, 4, value_buf2);
             snprintf(sInst + strlen(sInst), sizeof(sInst) - strlen(sInst), "$%s [$%s] {REL}", value_buf, value_buf2);
         }
 

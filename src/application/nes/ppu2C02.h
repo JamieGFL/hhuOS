@@ -28,6 +28,7 @@ typedef struct ppu2C02 {
     // memory
     uint8_t nametable[2][1024];
     uint8_t palette[32];
+    uint8_t patternTable[2][4096];
 
     // image
     pixel paletteScreen[64];
@@ -74,7 +75,9 @@ void freeImage(image* img);
 static inline int setImagePixel(image* img, int32_t x, int32_t y, pixel p);
 static inline pixel getImagePixel(image* img, int32_t x, int32_t y);
 
+// Debugging
 
+image* getPatternTableImage(ppu2C02* ppuIn, int index, uint8_t palette);
 
 #ifdef __cplusplus
 }
