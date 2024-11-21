@@ -129,7 +129,9 @@ uint8_t ppuCpuRead(cpu6502* cpu, ppu2C02* ppuIn, uint16_t addr, int readOnly){
             data = ppuIn->ppu_data_buffer;
             ppuIn->ppu_data_buffer = ppuRead(ppuIn, ppuIn->ppu_address, readOnly);
 
-            if(ppuIn->ppu_address > 0x3F00) data = ppuIn->ppu_data_buffer;
+            if(ppuIn->ppu_address >= 0x3F00) {
+                data = ppuIn->ppu_data_buffer; }
+            ppuIn->ppu_address++;
             break;
     }
 
@@ -155,16 +157,19 @@ void ppuCpuWrite(cpu6502* cpu, ppu2C02* ppuIn, uint16_t addr, uint8_t val){
             break;
         case 0x0006: // PPU Address
             if(ppuIn->adress_latch == 0){
-                ppuIn->ppu_address = val | (ppuIn->ppu_address & 0x00FF);
+                ppuIn->ppu_address = (val << 8) | (ppuIn->ppu_address & 0x00FF);
                 ppuIn->adress_latch = 1;
+
             }
             else{
                 ppuIn->ppu_address = (ppuIn->ppu_address & 0xFF00) | val;
                 ppuIn->adress_latch = 0;
+
             }
             break;
         case 0x0007: // PPU Data
             ppuWrite(ppuIn, ppuIn->ppu_address, val);
+            ppuIn->ppu_address++;
             break;
     }
 }
@@ -193,7 +198,7 @@ uint8_t ppuRead(ppu2C02* ppuIn, uint16_t addr, int readOnly){
     return data;
 }
 void ppuWrite(ppu2C02* ppuIn, uint16_t addr, uint8_t val){
-
+    addr &= 0x3FFF;
     if(cartPpUWrite(ppuIn, ppuIn->cart, addr, val)){
         // do nothing
     }
@@ -211,7 +216,6 @@ void ppuWrite(ppu2C02* ppuIn, uint16_t addr, uint8_t val){
         ppuIn->palette[addr] = val;
     }
 
-    addr &= 0x3FFF;
 }
 
 void connectCartridge(ppu2C02* ppuIn, cartridge* cart){
@@ -294,8 +298,8 @@ image* getPatternTableImage(ppu2C02* ppuIn, int index, uint8_t palette){
             uint16_t offset = yTile * 256 + xTile * 16;
 
             for (int row = 0; row < 8; ++row) {
-                uint8_t lsb = ppuRead(ppuIn, index * 0x1000 + offset + row + 0, false); // least significant bit, 0x1000 = 4 KB
-                uint8_t msb = ppuRead(ppuIn, index * 0x1000 + offset + row + 8, false); // most significant bit
+                uint8_t lsb = ppuRead(ppuIn, index * 0x1000 + offset + row + 0x0000, false); // least significant bit, 0x1000 = 4 KB
+                uint8_t msb = ppuRead(ppuIn, index * 0x1000 + offset + row + 0x0008, false); // most significant bit
 
                 for (int col = 0; col < 8; ++col) {
                     uint8_t pixel = (lsb & 0x01) + (msb & 0x01);
