@@ -88,6 +88,11 @@ void ppuInit(ppu2C02* ppuIn){
     ppuIn->scanline = 0;
     ppuIn->cycle = 0;
     ppuIn->frameComplete = false;
+
+    ppuIn->adress_latch = 0x00;
+    ppuIn->ppu_data_buffer = 0x00;
+    ppuIn->ppu_address = 0x0000;
+
 }
 
 void ppuDestroy(ppu2C02* ppuIn){
@@ -107,6 +112,10 @@ uint8_t ppuCpuRead(cpu6502* cpu, ppu2C02* ppuIn, uint16_t addr, int readOnly){
         case 0x0001: // Mask
             break;
         case 0x0002: // Status
+            ppuIn->status.vertical_blank = 1;
+            data = (ppuIn->status.reg & 0xE0) | (ppuIn->ppu_data_buffer & 0x1F);
+            ppuIn->status.vertical_blank = 0;
+            ppuIn->adress_latch = 0;
             break;
         case 0x0003: // OAM Address
             break;
@@ -117,6 +126,10 @@ uint8_t ppuCpuRead(cpu6502* cpu, ppu2C02* ppuIn, uint16_t addr, int readOnly){
         case 0x0006: // PPU Address
             break;
         case 0x0007: // PPU Data
+            data = ppuIn->ppu_data_buffer;
+            ppuIn->ppu_data_buffer = ppuRead(ppuIn, ppuIn->ppu_address, readOnly);
+
+            if(ppuIn->ppu_address > 0x3F00) data = ppuIn->ppu_data_buffer;
             break;
     }
 
@@ -127,8 +140,10 @@ void ppuCpuWrite(cpu6502* cpu, ppu2C02* ppuIn, uint16_t addr, uint8_t val){
 
     switch(addr){
         case 0x0000: // Control
+            ppuIn->control.reg = val;
             break;
         case 0x0001: // Mask
+            ppuIn->mask.reg = val;
             break;
         case 0x0002: // Status
             break;
@@ -139,8 +154,17 @@ void ppuCpuWrite(cpu6502* cpu, ppu2C02* ppuIn, uint16_t addr, uint8_t val){
         case 0x0005: // Scroll
             break;
         case 0x0006: // PPU Address
+            if(ppuIn->adress_latch == 0){
+                ppuIn->ppu_address = val | (ppuIn->ppu_address & 0x00FF);
+                ppuIn->adress_latch = 1;
+            }
+            else{
+                ppuIn->ppu_address = (ppuIn->ppu_address & 0xFF00) | val;
+                ppuIn->adress_latch = 0;
+            }
             break;
         case 0x0007: // PPU Data
+            ppuWrite(ppuIn, ppuIn->ppu_address, val);
             break;
     }
 }
