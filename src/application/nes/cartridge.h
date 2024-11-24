@@ -10,12 +10,21 @@ typedef struct {
     uint32_t size;
 } memoryChunk;
 
+static enum MIRROR {
+    HORIZONTAL,
+    VERTICAL,
+    ONESCREEN_LO,
+    ONESCREEN_HI,
+} mirror = HORIZONTAL;
+
 typedef struct cartridge {
     // memory
     memoryChunk prg;
     memoryChunk chr;
 
     uint8_t cMapperId;
+    // mirror
+    uint8_t cMirror;
     uint8_t cPRGBanks;
     uint8_t cCHRBanks;
 

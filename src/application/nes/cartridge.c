@@ -42,6 +42,7 @@ void cartridgeInit(cartridge* cartridgeIn, const char* filename){
     }
 
     cartridgeIn->cMapperId = ((header.mapper2 >> 4) << 4) | (header.mapper1 >> 4);
+    cartridgeIn->cMirror = (header.mapper1 & 0x01) ? VERTICAL : HORIZONTAL;
 
     uint8_t fileType = 1;
     if(fileType == 0){

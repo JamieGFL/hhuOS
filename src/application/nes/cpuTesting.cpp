@@ -199,6 +199,13 @@ void update(Util::Graphic::StringDrawer* stringDrawer, Util::Graphic::PixelDrawe
 
     // draw screen
     drawImage(0, 20, 256, 240, getScreenImage(&nesBus), pixelDrawer, 2);
+
+    // draw nametable ids
+    for(uint8_t y = 0; y < 30; y++){
+        for(uint8_t x = 0; x < 32; x++){
+            drawText(hex(nesBus.ppu->nametable[0][y * 32 + x], 2), x * 16, y * 16, Util::Graphic::Colors::WHITE, stringDrawer);
+        }
+    }
 };
 
 // load with string of hex values

@@ -1,5 +1,4 @@
 #include "ppu2C02.h"
-#include "cartridge.h"
 
 static pixel createPixel(uint8_t r, uint8_t g, uint8_t b, uint8_t a);
 static int pixelEquals(pixel p1, pixel p2);
@@ -184,7 +183,40 @@ uint8_t ppuRead(ppu2C02* ppuIn, uint16_t addr, int readOnly){
     else if(addr >= 0x0000 && addr <= 0x1FFF){
         data = ppuIn->patternTable[(addr & 0x1000) >> 12][addr & 0x0FFF];
     }
+    // nametable mirroring
     else if(addr >= 0x2000 && addr <= 0x3EFF){
+        // vertical
+        if(ppuIn->cart->cMirror == VERTICAL){
+            if(addr >= 0x0000 && addr <= 0x03FF){
+                data = ppuIn->nametable[0][addr & 0x03FF];
+            }
+            else if(addr >= 0x0400 && addr <= 0x07FF){
+                data = ppuIn->nametable[1][addr & 0x03FF];
+            }
+            else if(addr >= 0x0800 && addr <= 0x0BFF){
+                data = ppuIn->nametable[0][addr & 0x03FF];
+            }
+            else if(addr >= 0x0C00 && addr <= 0x0FFF){
+                data = ppuIn->nametable[1][addr & 0x03FF];
+            }
+        }
+        else if(ppuIn->cart->cMirror == HORIZONTAL){
+            // horizontal
+            if(addr >= 0x0000 && addr <= 0x03FF){
+                data = ppuIn->nametable[0][addr & 0x03FF];
+            }
+            else if(addr >= 0x0400 && addr <= 0x07FF){
+                data = ppuIn->nametable[0][addr & 0x03FF];
+            }
+            else if(addr >= 0x0800 && addr <= 0x0BFF){
+                data = ppuIn->nametable[1][addr & 0x03FF];
+            }
+            else if(addr >= 0x0C00 && addr <= 0x0FFF){
+                data = ppuIn->nametable[1][addr & 0x03FF];
+            }
+        }
+
+
     }
     else if(addr >= 0x3F00 && addr <= 0x3FFF){
         addr &= 0x001F;
@@ -205,7 +237,38 @@ void ppuWrite(ppu2C02* ppuIn, uint16_t addr, uint8_t val){
     else if(addr >= 0x0000 && addr <= 0x1FFF){
         ppuIn->patternTable[(addr & 0x1000) >> 12][addr & 0x0FFF] = val;
     }
+    // nametable mirroring
     else if(addr >= 0x2000 && addr <= 0x3EFF){
+        // vertical
+        if(ppuIn->cart->cMirror == VERTICAL){
+            if(addr >= 0x0000 && addr <= 0x03FF){
+                ppuIn->nametable[0][addr & 0x03FF] = val;
+            }
+            else if(addr >= 0x0400 && addr <= 0x07FF){
+                ppuIn->nametable[1][addr & 0x03FF] = val;
+            }
+            else if(addr >= 0x0800 && addr <= 0x0BFF){
+                ppuIn->nametable[0][addr & 0x03FF] = val;
+            }
+            else if(addr >= 0x0C00 && addr <= 0x0FFF){
+                ppuIn->nametable[1][addr & 0x03FF] = val;
+            }
+        }
+        // horizontal
+        else if(ppuIn->cart->cMirror == HORIZONTAL){
+            if(addr >= 0x0000 && addr <= 0x03FF){
+                ppuIn->nametable[0][addr & 0x03FF] = val;
+            }
+            else if(addr >= 0x0400 && addr <= 0x07FF){
+                ppuIn->nametable[0][addr & 0x03FF] = val;
+            }
+            else if(addr >= 0x0800 && addr <= 0x0BFF){
+                ppuIn->nametable[1][addr & 0x03FF] = val;
+            }
+            else if(addr >= 0x0C00 && addr <= 0x0FFF){
+                ppuIn->nametable[1][addr & 0x03FF] = val;
+            }
+        }
     }
     else if(addr >= 0x3F00 && addr <= 0x3FFF){
         addr &= 0x001F;
@@ -239,8 +302,8 @@ void ppuClock(ppu2C02* ppu) {
     }
 
     // Simulate rendering noise with black or white pixels
-    pixel randomPixel = ppu->paletteScreen[rand() % 2 ? 0x3F : 0x30];
-    setImagePixel(ppu->screen, ppu->cycle - 1, ppu->scanline, randomPixel);
+//    pixel randomPixel = ppu->paletteScreen[rand() % 2 ? 0x3F : 0x30];
+//    setImagePixel(ppu->screen, ppu->cycle - 1, ppu->scanline, randomPixel);
 
     // Advance the renderer
     ppu->cycle++;
