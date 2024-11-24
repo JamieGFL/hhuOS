@@ -25,6 +25,8 @@ extern "C" {
 #endif
 
 void bInit(bus_nes* b, bus* bus, cpu6502* cpu, ppu2C02* ppu);
+void bDestroy(bus_nes* b);
+
 void setBus(bus_nes *b);
 
 void nes_bus_Write(bus* b, uint16_t addr, uint8_t val);

@@ -21,6 +21,7 @@
 #include "lib/util/io/stream/FileInputStream.h"
 #include <time.h>
 
+auto lfb = (Util::Graphic::LinearFrameBuffer*)nullptr;
 
 // nes
 static  bus_nes nesBus;
@@ -82,7 +83,7 @@ void drawCPU(int x, int y, Util::Graphic::StringDrawer* stringDrawer, Util::Grap
 
     // clear CPU area
     for (int i = 0; i < 200; ++i) {
-        for (int j = 0; j < 50; ++j) {
+        for (int j = 0; j < 80; ++j) {
             pixelDrawer->drawPixel(x + i, y + j, clearColor);
         }
     }
@@ -160,7 +161,9 @@ void drawImage(int x, int y, int width, int height, image* img, Util::Graphic::P
 
     for (int i = 0; i < height; ++i) {
         for (int j = 0; j < width; ++j) {
-            Util::Graphic::Color color(img->data[i * width + j].r, img->data[i * width + j].g, img->data[i * width + j].b, img->data[i * width + j].a);
+            pixel p = getImagePixel(img, j, i);
+            Util::Graphic::Color color(p.r, p.g, p.b, p.a);
+            //Util::Graphic::Color color(img->data[i * width + j].r, img->data[i * width + j].g, img->data[i * width + j].b, img->data[i * width + j].a);
             for (int dy = 0; dy < scale; ++dy) {
                 for (int dx = 0; dx < scale; ++dx) {
                     pixelDrawer->drawPixel(x + j * scale + dx, y + i * scale + dy, color);
@@ -180,8 +183,8 @@ void update(Util::Graphic::StringDrawer* stringDrawer, Util::Graphic::PixelDrawe
     drawInstructions(540, 72, 26, stringDrawer, pixelDrawer);
 
     // visualize pattern table
-    drawImage(540, 350, 60, 60, getPatternTableImage(nesBus.ppu, 0, palette), pixelDrawer, 2);
-    drawImage(672, 350, 60, 60, getPatternTableImage(nesBus.ppu, 1, palette), pixelDrawer, 2);
+    drawImage(540, 350, 128, 128, getPatternTableImage(nesBus.ppu, 0, palette), pixelDrawer, 1);
+    drawImage(672, 350, 128, 128, getPatternTableImage(nesBus.ppu, 1, palette), pixelDrawer, 1);
 
     // draw screen
     drawImage(0, 20, 256, 240, getScreenImage(&nesBus), pixelDrawer, 2);
@@ -200,30 +203,6 @@ uint32_t load_program(const Util::String &program, uint16_t nOffset) {
     return tokens.length();
 }
 
-// load rom
-uint32_t load_rom(char const* filename, uint16_t nOffset) {
-    Util::Io::File file(filename);
-    Util::Io::FileInputStream fileStream(file);
-
-    uint32_t fileSize = file.getLength();
-    if (fileSize == 0) {
-        return 0;
-    }
-
-    char *buffer = new char[fileSize];
-    int bytesRead = fileStream.read(reinterpret_cast<uint8_t*>(buffer), 0, fileSize);
-
-    if (bytesRead > 0)
-    {
-        for (uint32_t i = 0; i < fileSize; i++) {
-            nesBus.busBase->ram[nOffset++] = buffer[i];
-        }
-    }
-
-    delete[] buffer;
-
-    return fileSize;
-}
 
 // main loop
 int main(int argc, char ** argv){
@@ -236,18 +215,10 @@ int main(int argc, char ** argv){
     bInit(&nesBus, &b, &cpu, &ppu);
     setBus(&nesBus);
 
-    if(argc > 1){
-        load_rom(argv[1], 0x8000);
-    } else
-    {
-        cartridgeInit(&cart, "user/nes/nestest.nes");
-        insertCartridge(&nesBus, &cart);
-    }
+    cartridgeInit(&cart, "user/nes/donkey kong.nes");
+    insertCartridge(&nesBus, &cart);
 
-    nesBus.busBase->ram[0xFFFC] = 0x00;
-    nesBus.busBase->ram[0xFFFD] = 0x80;
-
-    // disassembly
+    //disassembly
     instructions = disassemble(0x0000, 0xFFFF, nesBus.busBase);
 
     // reset cpu
@@ -257,16 +228,13 @@ int main(int argc, char ** argv){
 
     lfbFile.controlFile(Util::Graphic::LinearFrameBuffer::SET_RESOLUTION, Util::Array<uint32_t>({VIDEO_WIDTH, VIDEO_HEIGHT}));
 
-    auto* lfb = new Util::Graphic::LinearFrameBuffer(lfbFile);
+    lfb = new Util::Graphic::LinearFrameBuffer(lfbFile);
 
     auto pixelDrawer = Util::Graphic::PixelDrawer(*lfb);
     auto stringDrawer = Util::Graphic::StringDrawer(pixelDrawer);
     Util::Graphic::Ansi::prepareGraphicalApplication(true);
     Util::Io::File::setAccessMode(Util::Io::STANDARD_INPUT, Util::Io::File::NON_BLOCKING);
     Util::Io::KeyDecoder keyDecoder(new Util::Io::DeLayout());
-
-    // Colors
-    Util::Graphic::Color black(0, 0, 0, 255); // RGB(0, 0, 0) with full opacity
 
     // Fill the entire screen with dark green
     for (int y = 0; y < 700; ++y) {
@@ -287,6 +255,11 @@ int main(int argc, char ** argv){
 
             Util::Io::Key key = keyDecoder.getCurrentKey();
         if(running){
+            if (keyCode != -1 && keyDecoder.parseScancode(keyCode)) {
+                if (key.isPressed() && key.getScancode() == Util::Io::Key::SPACE) {
+                    running = false;
+                }
+            }
             if(timeLeft > 0.0f){
                 timeLeft -= elapsedTime;
             } else {
@@ -294,11 +267,6 @@ int main(int argc, char ** argv){
                 do (busClock(&nesBus)); while (!frameComplete(&nesBus));
                 setFrameComplete(&nesBus, false);
                 update(&stringDrawer, &pixelDrawer);
-            }
-            if (keyCode != -1 && keyDecoder.parseScancode(keyCode)) {
-                if (key.isPressed() && key.getScancode() == Util::Io::Key::SPACE) {
-                    running = !running;
-                }
             }
         }
         else {
@@ -325,8 +293,8 @@ int main(int argc, char ** argv){
             }
         }
 
-        if(key.isPressed() && key.getScancode() == Util::Io::Key::SPACE){
-            running = !running;
+        if(key.isPressed() && key.getScancode() == Util::Io::Key::ENTER){
+            running = true;
         }
         if(key.isPressed() && key.getScancode() == Util::Io::Key::R){
             reset(nesBus.cpu);
@@ -344,6 +312,10 @@ int main(int argc, char ** argv){
 
         end = clock();
     }
+    // clean up
+    delete lfb;
+    bDestroy(&nesBus);
+
 
     return 0;
 }

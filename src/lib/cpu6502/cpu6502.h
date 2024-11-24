@@ -45,7 +45,7 @@ extern "C" {
 
 void cInit(cpu6502* cpu);
 
-void cDestroy();
+void cDestroy(cpu6502* cpu);
 
 void connectBus(cpu6502* cpu, bus* b);
 

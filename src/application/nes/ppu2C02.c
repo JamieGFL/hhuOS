@@ -1,14 +1,14 @@
 #include "ppu2C02.h"
 #include "cartridge.h"
 
-static inline pixel createPixel(uint8_t r, uint8_t g, uint8_t b, uint8_t a);
-static inline int pixelEquals(pixel p1, pixel p2);
+static pixel createPixel(uint8_t r, uint8_t g, uint8_t b, uint8_t a);
+static int pixelEquals(pixel p1, pixel p2);
 
-static inline image* createImage(int32_t width, int32_t height);
+static image* createImage(int32_t width, int32_t height);
 void freeImage(image* img);
 
-static inline int setImagePixel(image* img, int32_t x, int32_t y, pixel p);
-static inline pixel getImagePixel(image* img, int32_t x, int32_t y);
+static int setImagePixel(image* img, int32_t x, int32_t y, pixel p);
+pixel getImagePixel(image* img, int32_t x, int32_t y);
 
 void ppuInit(ppu2C02* ppuIn){
     ppuIn->paletteScreen[0x00] = createPixel(84, 84, 84, 255);
@@ -89,10 +89,11 @@ void ppuInit(ppu2C02* ppuIn){
     ppuIn->cycle = 0;
     ppuIn->frameComplete = false;
 
+    ppuIn->nmi = false;
+
     ppuIn->adress_latch = 0x00;
     ppuIn->ppu_data_buffer = 0x00;
     ppuIn->ppu_address = 0x0000;
-
 }
 
 void ppuDestroy(ppu2C02* ppuIn){
@@ -112,7 +113,6 @@ uint8_t ppuCpuRead(cpu6502* cpu, ppu2C02* ppuIn, uint16_t addr, int readOnly){
         case 0x0001: // Mask
             break;
         case 0x0002: // Status
-            ppuIn->status.vertical_blank = 1;
             data = (ppuIn->status.reg & 0xE0) | (ppuIn->ppu_data_buffer & 0x1F);
             ppuIn->status.vertical_blank = 0;
             ppuIn->adress_latch = 0;
@@ -223,6 +223,21 @@ void connectCartridge(ppu2C02* ppuIn, cartridge* cart){
 }
 
 void ppuClock(ppu2C02* ppu) {
+
+    if(ppu->scanline == -1 && ppu->cycle == 1) {
+        ppu->status.vertical_blank = 0;
+        ppu->status.sprite_overflow = 0;
+        ppu->status.sprite_zero_hit = 0;
+    }
+
+    // Set vertical blank flag when end of scanline is reached
+    if(ppu->scanline == 241 && ppu->cycle == 1) {
+        ppu->status.vertical_blank = 1;
+        if(ppu->control.enable_nmi) {
+            ppu->nmi = true;
+        }
+    }
+
     // Simulate rendering noise with black or white pixels
     pixel randomPixel = ppu->paletteScreen[rand() % 2 ? 0x3F : 0x30];
     setImagePixel(ppu->screen, ppu->cycle - 1, ppu->scanline, randomPixel);
@@ -243,16 +258,16 @@ void ppuClock(ppu2C02* ppu) {
 // Image functions
 
 
-static inline pixel createPixel(uint8_t r, uint8_t g, uint8_t b, uint8_t a){
+static pixel createPixel(uint8_t r, uint8_t g, uint8_t b, uint8_t a){
     pixel p = {r, g, b, a};
     return p;
 }
 
-static inline int pixelEquals(pixel p1, pixel p2){
+static int pixelEquals(pixel p1, pixel p2){
     return p1.r == p2.r && p1.g == p2.g && p1.b == p2.b && p1.a == p2.a;
 }
 
-static inline image* createImage(int32_t width, int32_t height){
+static image* createImage(int32_t width, int32_t height){
     image* img = (image*)malloc(sizeof(image));
     if(img)
     {
@@ -269,7 +284,7 @@ void freeImage(image* img){
     }
 }
 
-static inline int setImagePixel(image* img, int32_t x, int32_t y, pixel p){
+static int setImagePixel(image* img, int32_t x, int32_t y, pixel p){
     if (x >= 0 && x < img->width && y >= 0 && y < img->height) {
         img->data[y * img->width + x] = p;
         return 1; // Success
@@ -277,7 +292,7 @@ static inline int setImagePixel(image* img, int32_t x, int32_t y, pixel p){
     return 0; // Out of bounds
 }
 
-static inline pixel getImagePixel(image* img, int32_t x, int32_t y){
+pixel getImagePixel(image* img, int32_t x, int32_t y){
     if (x >= 0 && x < img->width && y >= 0 && y < img->height) {
         return img->data[y * img->width + x];
     }
@@ -286,7 +301,7 @@ static inline pixel getImagePixel(image* img, int32_t x, int32_t y){
 
 // Debugging
 
-pixel getColorFromPalette(ppu2C02 *ppuIn, uint8_t palette, uint8_t pixel) {
+static pixel getColorFromPalette(ppu2C02 *ppuIn, uint8_t palette, uint8_t pixel) {
     return ppuIn->paletteScreen[ppuRead(ppuIn,0x3F00 + (palette << 2) + pixel, 0) & 0x3F];
 }
 image* getScreenImage(ppu2C02* ppuIn);

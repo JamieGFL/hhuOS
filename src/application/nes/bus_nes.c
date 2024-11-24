@@ -24,12 +24,20 @@ void bInit(bus_nes* b, bus* bus, cpu6502* cpu, ppu2C02* ppu) {
     connectBus(b->cpu, b->busBase);
 }
 
+void bDestroy(bus_nes* b) {
+    free(b->cpu);
+    ppuDestroy(b->ppu);
+    free(b->ppu);
+    free(b->cart);
+    free(b->busBase);
+    free(b);
+}
+
 void setBus(bus_nes *b) {
     nesBus = b;
 }
 
 void nes_bus_Write(bus* b, uint16_t addr, uint8_t val) {
-//    bus->busBase->ram[0] = val;
 
         if(cartCpuWrite(nesBus->cpu, nesBus->cart, addr, val)){
             // do nothing
@@ -74,9 +82,14 @@ void busReset(bus_nes* b) {
 
 void busClock(bus_nes* b) {
     ppuClock(b->ppu);
-    if(b->clockCount % 3 == 0) {
+    if (b->clockCount % 3 == 0) {
         cpuClock(b->cpu);
     }
+    if(b->ppu->nmi){
+        b->ppu->nmi = false;
+        nmi(b->cpu);
+    }
+
     b->clockCount++;
 }
 

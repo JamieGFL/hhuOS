@@ -45,10 +45,6 @@ void cInit(cpu6502* cpu) {
 
 }
 
-void cDestroy() {
-    // No dynamic memory used yet
-}
-
 void connectBus(cpu6502* cpu, bus* b) {
     cpu->nesBus = b;
 }

@@ -35,9 +35,13 @@ typedef struct ppu2C02 {
     image* screen;
     image* image_nametable[2];
     image* image_patternTable[2];
+
+    // clock
     int16_t scanline;
     int16_t cycle;
     bool frameComplete;
+
+    bool nmi;
 
     union
     {
@@ -113,14 +117,14 @@ void ppuClock(ppu2C02* ppuIn);
 
 // Image functions
 
-static inline pixel createPixel(uint8_t r, uint8_t g, uint8_t b, uint8_t a);
-static inline int pixelEquals(pixel p1, pixel p2);
+static pixel createPixel(uint8_t r, uint8_t g, uint8_t b, uint8_t a);
+static int pixelEquals(pixel p1, pixel p2);
 
-static inline image* createImage(int32_t width, int32_t height);
+static image* createImage(int32_t width, int32_t height);
 void freeImage(image* img);
 
-static inline int setImagePixel(image* img, int32_t x, int32_t y, pixel p);
-static inline pixel getImagePixel(image* img, int32_t x, int32_t y);
+static int setImagePixel(image* img, int32_t x, int32_t y, pixel p);
+pixel getImagePixel(image* img, int32_t x, int32_t y);
 
 // Debugging
 
