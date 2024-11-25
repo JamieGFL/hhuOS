@@ -41,6 +41,8 @@ void cartridgeInit(cartridge* cartridgeIn, const char* filename){
         fseek(file, 512, SEEK_CUR);
     }
 
+    cartridgeIn->cMirror = HORIZONTAL;
+
     cartridgeIn->cMapperId = ((header.mapper2 >> 4) << 4) | (header.mapper1 >> 4);
     cartridgeIn->cMirror = (header.mapper1 & 0x01) ? VERTICAL : HORIZONTAL;
 

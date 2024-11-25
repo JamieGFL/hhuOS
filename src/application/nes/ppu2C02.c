@@ -185,6 +185,7 @@ uint8_t ppuRead(ppu2C02* ppuIn, uint16_t addr, int readOnly){
     }
     // nametable mirroring
     else if(addr >= 0x2000 && addr <= 0x3EFF){
+        addr &= 0x0FFF;
         // vertical
         if(ppuIn->cart->cMirror == VERTICAL){
             if(addr >= 0x0000 && addr <= 0x03FF){
@@ -239,6 +240,7 @@ void ppuWrite(ppu2C02* ppuIn, uint16_t addr, uint8_t val){
     }
     // nametable mirroring
     else if(addr >= 0x2000 && addr <= 0x3EFF){
+        addr &= 0x0FFF;
         // vertical
         if(ppuIn->cart->cMirror == VERTICAL){
             if(addr >= 0x0000 && addr <= 0x03FF){

@@ -38,17 +38,6 @@ const unsigned int VIDEO_WIDTH = 64;
 
 Util::Graphic::Color clearColor(0, 60, 0, 255); // dark green
 
-void run(Util::Io::KeyDecoder &keyDecoder, float elapsedTime, int16_t keyCode, const Util::Io::Key &key,
-         Util::Graphic::PixelDrawer &pixelDrawer, Util::Graphic::StringDrawer &stringDrawer);
-
-void processAdvanceInputs(Util::Io::KeyDecoder &keyDecoder, int16_t keyCode, const Util::Io::Key &key,
-                          Util::Graphic::PixelDrawer &pixelDrawer, Util::Graphic::StringDrawer &stringDrawer);
-
-bool processGeneralInput(const Util::Io::Key &key, Util::Graphic::PixelDrawer &pixelDrawer,
-                         Util::Graphic::StringDrawer &stringDrawer);
-
-void clearScreen(const Util::Graphic::PixelDrawer &pixelDrawer);
-
 static Util::String hex(uint32_t intValue, uint8_t length){
     Util::String hexstring("00000000");
     if (length < hexstring.length()) {
@@ -132,24 +121,24 @@ void drawInstructions(int x, int y, int nLines, Util::Graphic::StringDrawer* str
     Util::Graphic::Color textColor(255, 255, 255); // White color for other instructions
     Util::Graphic::Color highlightColor(255, 255, 0); // Yellow color for the current instruction
 
-     //clear instruction area
-     for (int i = 0; i < 250; ++i) {
-         for (int j = 0; j < 270; ++j) {
-             pixelDrawer->drawPixel(x + i, y + j, clearColor);
-         }
-     }
+    //clear instruction area
+    for (int i = 0; i < 250; ++i) {
+        for (int j = 0; j < 270; ++j) {
+            pixelDrawer->drawPixel(x + i, y + j, clearColor);
+        }
+    }
 
     auto currentPC = nesBus.cpu->PC;
     int lineY = (nLines >> 1) * 10 + y;
 
     if(currentPC != instructions.entries[MAP_LENGTH-1].address) {
         drawText(instructions.entries[currentPC].instruction,
-        x, lineY, highlightColor, stringDrawer);
+                 x, lineY, highlightColor, stringDrawer);
         while(lineY < (nLines * 10) + y) {
             if(currentPC++ != instructions.entries[MAP_LENGTH-1].address && instructions.entries[currentPC].address  != 0 ) {
                 lineY += 10;
                 drawText(instructions.entries[currentPC].instruction,
-                x, lineY, textColor, stringDrawer);
+                         x, lineY, textColor, stringDrawer);
             }
         }
     }
@@ -162,7 +151,7 @@ void drawInstructions(int x, int y, int nLines, Util::Graphic::StringDrawer* str
             if(currentPC-- != instructions.entries[MAP_LENGTH-1].address && instructions.entries[currentPC].address  != 0 ) {
                 lineY -= 10;
                 drawText(instructions.entries[currentPC].instruction,
-                x, lineY, textColor, stringDrawer);
+                         x, lineY, textColor, stringDrawer);
             }
         }
     }
@@ -200,10 +189,17 @@ void update(Util::Graphic::StringDrawer* stringDrawer, Util::Graphic::PixelDrawe
     // draw screen
     drawImage(0, 20, 256, 240, getScreenImage(&nesBus), pixelDrawer, 2);
 
+
     // draw nametable ids
+    for (int i = 0; i < 500; ++i) {
+        for (int j = 0; j < 520; ++j) {
+            pixelDrawer->drawPixel( j, i, clearColor);
+        }
+    }
+
     for(uint8_t y = 0; y < 30; y++){
         for(uint8_t x = 0; x < 32; x++){
-            drawText(hex(nesBus.ppu->nametable[0][y * 32 + x], 2), x * 16, y * 16, Util::Graphic::Colors::WHITE, stringDrawer);
+            drawText(hex((uint32_t)nesBus.ppu->nametable[0][y * 32 + x], 2), x * 16, y * 16, Util::Graphic::Colors::WHITE, stringDrawer);
         }
     }
 };
@@ -233,7 +229,7 @@ int main(int argc, char ** argv){
     bInit(&nesBus, &b, &cpu, &ppu);
     setBus(&nesBus);
 
-    cartridgeInit(&cart, "user/nes/donkey kong.nes");
+    cartridgeInit(&cart, "user/nes/nestest.nes");
     insertCartridge(&nesBus, &cart);
 
     //disassembly
@@ -254,28 +250,79 @@ int main(int argc, char ** argv){
     Util::Io::File::setAccessMode(Util::Io::STANDARD_INPUT, Util::Io::File::NON_BLOCKING);
     Util::Io::KeyDecoder keyDecoder(new Util::Io::DeLayout());
 
-    clearScreen(pixelDrawer);
+    // Fill the entire screen with dark green
+    for (int y = 0; y < 700; ++y) {
+        for (int x = 0; x < 800; ++x) {
+            pixelDrawer.drawPixel(x, y, clearColor);
+        }
+    }
 
     float elapsedTime = 0;
     clock_t start, end;
 
     update(&stringDrawer, &pixelDrawer);
     while (true) {
+        auto keyCode = Util::System::in.read();
         elapsedTime = (float)(end - start) / CLOCKS_PER_SEC;
         start = clock();
 
-        auto keyCode = Util::System::in.read();
+
         Util::Io::Key key = keyDecoder.getCurrentKey();
         if(running){
-            run(keyDecoder, elapsedTime, keyCode, key, pixelDrawer, stringDrawer);
+            if (keyCode != -1 && keyDecoder.parseScancode(keyCode)) {
+                if (key.isPressed() && key.getScancode() == Util::Io::Key::SPACE) {
+                    running = false;
+                }
+            }
+            if(timeLeft > 0.0f){
+                timeLeft -= elapsedTime;
+            } else {
+                timeLeft += (1.0f / 60.0f) - elapsedTime;
+                do (busClock(&nesBus)); while (!frameComplete(&nesBus));
+                setFrameComplete(&nesBus, false);
+                update(&stringDrawer, &pixelDrawer);
+            }
         }
         else {
-            processAdvanceInputs(keyDecoder, keyCode, key, pixelDrawer, stringDrawer);
+            if (keyCode != -1 && keyDecoder.parseScancode(keyCode)) {
+                if (key.isPressed() && key.getScancode() == Util::Io::Key::C) {
+                    do {
+                        busClock(&nesBus);
+                    } while (!complete(nesBus.cpu));
+                    do {
+                        busClock(&nesBus);
+                    } while (!complete(nesBus.cpu));
+                    update(&stringDrawer, &pixelDrawer);
+                }
+                if (key.isPressed() && key.getScancode() == Util::Io::Key::F) {
+                    do {
+                        busClock(&nesBus);
+                    } while (!frameComplete(&nesBus));
+                    do {
+                        busClock(&nesBus);
+                    } while (!complete(nesBus.cpu));
+                    setFrameComplete(&nesBus, false);
+                    update(&stringDrawer, &pixelDrawer);
+                }
+            }
         }
 
-        if(processGeneralInput(key, pixelDrawer, stringDrawer)){
+        if(key.isPressed() && key.getScancode() == Util::Io::Key::ENTER){
+            running = true;
+        }
+        if(key.isPressed() && key.getScancode() == Util::Io::Key::R){
+            reset(nesBus.cpu);
+            update(&stringDrawer, &pixelDrawer);
+        }
+        if(key.isPressed() && key.getScancode() == Util::Io::Key::Q){
+            (++palette) &= 0x07;
+        }
+
+
+        if(key.isPressed() && key.getScancode() == Util::Io::Key::ESC){
             return true;
         }
+
 
         end = clock();
     }
@@ -285,73 +332,6 @@ int main(int argc, char ** argv){
 
 
     return 0;
-}
-
-void clearScreen(const Util::Graphic::PixelDrawer &pixelDrawer) {
-    for (int y = 0; y < 700; ++y) {
-        for (int x = 0; x < 800; ++x) {
-            pixelDrawer.drawPixel(x, y, clearColor);
-        }
-    }
-}
-
-bool processGeneralInput(const Util::Io::Key &key, Util::Graphic::PixelDrawer &pixelDrawer,
-                         Util::Graphic::StringDrawer &stringDrawer) {
-    if(key.isPressed() && key.getScancode() == Util::Io::Key::ENTER){
-        running = true;
-    }
-    if(key.isPressed() && key.getScancode() == Util::Io::Key::R){
-        reset(nesBus.cpu);
-        update(&stringDrawer, &pixelDrawer);
-    }
-    if(key.isPressed() && key.getScancode() == Util::Io::Key::Q){
-        (++palette) &= 0x07;
-    }
-    if(key.isPressed() && key.getScancode() == Util::Io::Key::ESC){
-        return true;
-    }
-}
-
-void processAdvanceInputs(Util::Io::KeyDecoder &keyDecoder, int16_t keyCode, const Util::Io::Key &key,
-                          Util::Graphic::PixelDrawer &pixelDrawer, Util::Graphic::StringDrawer &stringDrawer) {
-    if (keyCode != -1 && keyDecoder.parseScancode(keyCode)) {
-        if (key.isPressed() && key.getScancode() == Util::Io::Key::C) {
-            do {
-                busClock(&nesBus);
-            } while (!complete(nesBus.cpu));
-            do {
-                busClock(&nesBus);
-            } while (!complete(nesBus.cpu));
-            update(&stringDrawer, &pixelDrawer);
-        }
-        if (key.isPressed() && key.getScancode() == Util::Io::Key::F) {
-            do {
-                busClock(&nesBus);
-            } while (!frameComplete(&nesBus));
-            do {
-                busClock(&nesBus);
-            } while (!complete(nesBus.cpu));
-            setFrameComplete(&nesBus, false);
-            update(&stringDrawer, &pixelDrawer);
-        }
-    }
-}
-
-void run(Util::Io::KeyDecoder &keyDecoder, float elapsedTime, int16_t keyCode, const Util::Io::Key &key,
-         Util::Graphic::PixelDrawer &pixelDrawer, Util::Graphic::StringDrawer &stringDrawer) {
-    if (keyCode != -1 && keyDecoder.parseScancode(keyCode)) {
-        if (key.isPressed() && key.getScancode() == Util::Io::Key::SPACE) {
-            running = false;
-        }
-    }
-    if(timeLeft > 0.0f){
-        timeLeft -= elapsedTime;
-    } else {
-        timeLeft += (1.0f / 60.0f) - elapsedTime;
-        do (busClock(&nesBus)); while (!frameComplete(&nesBus));
-        setFrameComplete(&nesBus, false);
-        update(&stringDrawer, &pixelDrawer);
-    }
 }
 
 
