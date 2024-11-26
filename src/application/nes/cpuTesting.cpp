@@ -20,6 +20,7 @@
 #include "bus_nes.h"
 #include "lib/util/io/stream/FileInputStream.h"
 #include <time.h>
+#include <cstdio>
 
 auto lfb = (Util::Graphic::LinearFrameBuffer*)nullptr;
 
@@ -37,6 +38,14 @@ const unsigned int VIDEO_HEIGHT = 32;
 const unsigned int VIDEO_WIDTH = 64;
 
 Util::Graphic::Color clearColor(0, 60, 0, 255); // dark green
+
+void run(float elapsedTime, Util::Graphic::PixelDrawer &pixelDrawer, Util::Graphic::StringDrawer &stringDrawer);
+
+void processAdvanceInputs(Util::Io::KeyDecoder &keyDecoder, int16_t keyCode, const Util::Io::Key &key,
+                          Util::Graphic::PixelDrawer &pixelDrawer, Util::Graphic::StringDrawer &stringDrawer);
+
+void processUtilityInputs(const Util::Io::Key &key, Util::Graphic::PixelDrawer &pixelDrawer,
+                          Util::Graphic::StringDrawer &stringDrawer);
 
 static Util::String hex(uint32_t intValue, uint8_t length){
     Util::String hexstring("00000000");
@@ -191,18 +200,18 @@ void update(Util::Graphic::StringDrawer* stringDrawer, Util::Graphic::PixelDrawe
 
 
     // draw nametable ids
-    for (int i = 0; i < 500; ++i) {
-        for (int j = 0; j < 520; ++j) {
-            pixelDrawer->drawPixel( j, i, clearColor);
-        }
+//    for (int i = 0; i < 500; ++i) {
+//        for (int j = 0; j < 520; ++j) {
+//            pixelDrawer->drawPixel( j, i, clearColor);
+//        }
+//    }
+//
+//    for(uint8_t y = 0; y < 30; y++){
+//        for(uint8_t x = 0; x < 32; x++){
+//            drawText(hex((uint32_t)nesBus.ppu->nametable[0][y * 32 + x], 2), x * 16, y * 16, Util::Graphic::Colors::WHITE, stringDrawer);
+//        }
     }
-
-    for(uint8_t y = 0; y < 30; y++){
-        for(uint8_t x = 0; x < 32; x++){
-            drawText(hex((uint32_t)nesBus.ppu->nametable[0][y * 32 + x], 2), x * 16, y * 16, Util::Graphic::Colors::WHITE, stringDrawer);
-        }
-    }
-};
+//};
 
 // load with string of hex values
 uint32_t load_program(const Util::String &program, uint16_t nOffset) {
@@ -229,7 +238,12 @@ int main(int argc, char ** argv){
     bInit(&nesBus, &b, &cpu, &ppu);
     setBus(&nesBus);
 
-    cartridgeInit(&cart, "user/nes/nestest.nes");
+    // build string
+    char path[256]; // Allocate enough space for the full path
+    const char* basePath = "user/nes/";
+    snprintf(path, sizeof(path), "%s%s", basePath, argv[1]);
+
+    cartridgeInit(&cart, path);
     insertCartridge(&nesBus, &cart);
 
     //disassembly
@@ -274,55 +288,16 @@ int main(int argc, char ** argv){
                     running = false;
                 }
             }
-            if(timeLeft > 0.0f){
-                timeLeft -= elapsedTime;
-            } else {
-                timeLeft += (1.0f / 60.0f) - elapsedTime;
-                do (busClock(&nesBus)); while (!frameComplete(&nesBus));
-                setFrameComplete(&nesBus, false);
-                update(&stringDrawer, &pixelDrawer);
-            }
+            run(elapsedTime, pixelDrawer, stringDrawer);
         }
         else {
-            if (keyCode != -1 && keyDecoder.parseScancode(keyCode)) {
-                if (key.isPressed() && key.getScancode() == Util::Io::Key::C) {
-                    do {
-                        busClock(&nesBus);
-                    } while (!complete(nesBus.cpu));
-                    do {
-                        busClock(&nesBus);
-                    } while (!complete(nesBus.cpu));
-                    update(&stringDrawer, &pixelDrawer);
-                }
-                if (key.isPressed() && key.getScancode() == Util::Io::Key::F) {
-                    do {
-                        busClock(&nesBus);
-                    } while (!frameComplete(&nesBus));
-                    do {
-                        busClock(&nesBus);
-                    } while (!complete(nesBus.cpu));
-                    setFrameComplete(&nesBus, false);
-                    update(&stringDrawer, &pixelDrawer);
-                }
-            }
+            processAdvanceInputs(keyDecoder, keyCode, key, pixelDrawer, stringDrawer);
         }
-
-        if(key.isPressed() && key.getScancode() == Util::Io::Key::ENTER){
-            running = true;
-        }
-        if(key.isPressed() && key.getScancode() == Util::Io::Key::R){
-            reset(nesBus.cpu);
-            update(&stringDrawer, &pixelDrawer);
-        }
-        if(key.isPressed() && key.getScancode() == Util::Io::Key::Q){
-            (++palette) &= 0x07;
-        }
-
+        processUtilityInputs(key, pixelDrawer, stringDrawer);
 
         if(key.isPressed() && key.getScancode() == Util::Io::Key::ESC){
-            return true;
+            break;
         }
-
 
         end = clock();
     }
@@ -332,6 +307,56 @@ int main(int argc, char ** argv){
 
 
     return 0;
+}
+
+void processUtilityInputs(const Util::Io::Key &key, Util::Graphic::PixelDrawer &pixelDrawer,
+                          Util::Graphic::StringDrawer &stringDrawer) {
+    if(key.isPressed() && key.getScancode() == Util::Io::Key::ENTER){
+        running = true;
+    }
+    if(key.isPressed() && key.getScancode() == Util::Io::Key::R){
+        reset(nesBus.cpu);
+        update(&stringDrawer, &pixelDrawer);
+    }
+    if(key.isPressed() && key.getScancode() == Util::Io::Key::Q){
+        (++palette) &= 0x07;
+    }
+}
+
+void processAdvanceInputs(Util::Io::KeyDecoder &keyDecoder, int16_t keyCode, const Util::Io::Key &key,
+                          Util::Graphic::PixelDrawer &pixelDrawer, Util::Graphic::StringDrawer &stringDrawer) {
+    if (keyCode != -1 && keyDecoder.parseScancode(keyCode)) {
+        if (key.isPressed() && key.getScancode() == Util::Io::Key::C) {
+            do {
+                busClock(&nesBus);
+            } while (!complete(nesBus.cpu));
+            do {
+                busClock(&nesBus);
+            } while (!complete(nesBus.cpu));
+            update(&stringDrawer, &pixelDrawer);
+        }
+        if (key.isPressed() && key.getScancode() == Util::Io::Key::F) {
+            do {
+                busClock(&nesBus);
+            } while (!frameComplete(&nesBus));
+            do {
+                busClock(&nesBus);
+            } while (!complete(nesBus.cpu));
+            setFrameComplete(&nesBus, false);
+            update(&stringDrawer, &pixelDrawer);
+        }
+    }
+}
+
+void run(float elapsedTime, Util::Graphic::PixelDrawer &pixelDrawer, Util::Graphic::StringDrawer &stringDrawer) {
+    if(timeLeft > 0.0f){
+        timeLeft -= elapsedTime;
+    } else {
+        timeLeft += (1.0f / 60.0f) - elapsedTime;
+        do (busClock(&nesBus)); while (!frameComplete(&nesBus));
+        setFrameComplete(&nesBus, false);
+        update(&stringDrawer, &pixelDrawer);
+    }
 }
 
 

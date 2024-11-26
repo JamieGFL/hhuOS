@@ -89,7 +89,34 @@ typedef struct ppu2C02 {
 
     uint8_t adress_latch;
     uint8_t ppu_data_buffer;
-    uint16_t ppu_address;
+
+    union loopyRegister
+    {
+        struct
+        {
+            uint16_t coarse_x : 5;
+            uint16_t coarse_y : 5;
+            uint16_t nametable_x : 1;
+            uint16_t nametable_y : 1;
+            uint16_t fine_y : 3;
+            uint16_t unused : 1;
+        };
+        uint16_t reg;
+    } vRamAddr, tRamAddr;
+
+    uint8_t fineX;
+
+    // background
+    uint8_t bgNextTileId;
+    uint8_t bgNextTileAttrib;
+    uint8_t bgNextTileLsb;
+    uint8_t bgNextTileMsb;
+
+    uint16_t bgShifterPatternLo;
+    uint16_t bgShifterPatternHi;
+    uint16_t bgShifterAttribLo;
+    uint16_t bgShifterAttribHi;
+
 } ppu2C02;
 
 

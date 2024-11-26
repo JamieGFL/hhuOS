@@ -9,6 +9,8 @@ void freeImage(image* img);
 static int setImagePixel(image* img, int32_t x, int32_t y, pixel p);
 pixel getImagePixel(image* img, int32_t x, int32_t y);
 
+static pixel getColorFromPalette(ppu2C02 *ppuIn, uint8_t palette, uint8_t pixel);
+
 void ppuInit(ppu2C02* ppuIn){
     ppuIn->paletteScreen[0x00] = createPixel(84, 84, 84, 255);
     ppuIn->paletteScreen[0x01] = createPixel(0, 30, 116, 255);
@@ -92,7 +94,18 @@ void ppuInit(ppu2C02* ppuIn){
 
     ppuIn->adress_latch = 0x00;
     ppuIn->ppu_data_buffer = 0x00;
-    ppuIn->ppu_address = 0x0000;
+    ppuIn->vRamAddr.reg = 0x0000;
+    ppuIn->tRamAddr.reg = 0x0000;
+
+    ppuIn->bgNextTileId = 0x00;
+    ppuIn->bgNextTileAttrib = 0x00;
+    ppuIn->bgNextTileLsb = 0x00;
+    ppuIn->bgNextTileMsb = 0x00;
+
+    ppuIn->bgShifterPatternLo = 0x0000;
+    ppuIn->bgShifterPatternHi = 0x0000;
+    ppuIn->bgShifterAttribLo = 0x0000;
+    ppuIn->bgShifterAttribHi = 0x0000;
 }
 
 void ppuDestroy(ppu2C02* ppuIn){
@@ -126,11 +139,11 @@ uint8_t ppuCpuRead(cpu6502* cpu, ppu2C02* ppuIn, uint16_t addr, int readOnly){
             break;
         case 0x0007: // PPU Data
             data = ppuIn->ppu_data_buffer;
-            ppuIn->ppu_data_buffer = ppuRead(ppuIn, ppuIn->ppu_address, readOnly);
+            ppuIn->ppu_data_buffer = ppuRead(ppuIn, ppuIn->vRamAddr.reg, readOnly);
 
-            if(ppuIn->ppu_address >= 0x3F00) {
+            if(ppuIn->vRamAddr.reg >= 0x3F00) {
                 data = ppuIn->ppu_data_buffer; }
-            ppuIn->ppu_address++;
+            ppuIn->vRamAddr.reg += (ppuIn->control.increment_mode ? 32 : 1);
             break;
     }
 
@@ -142,6 +155,8 @@ void ppuCpuWrite(cpu6502* cpu, ppu2C02* ppuIn, uint16_t addr, uint8_t val){
     switch(addr){
         case 0x0000: // Control
             ppuIn->control.reg = val;
+            ppuIn->tRamAddr.nametable_x = ppuIn->control.nametable_x;
+            ppuIn->tRamAddr.nametable_y = ppuIn->control.nametable_y;
             break;
         case 0x0001: // Mask
             ppuIn->mask.reg = val;
@@ -153,22 +168,33 @@ void ppuCpuWrite(cpu6502* cpu, ppu2C02* ppuIn, uint16_t addr, uint8_t val){
         case 0x0004: // OAM Data
             break;
         case 0x0005: // Scroll
+            if(ppuIn->adress_latch == 0){
+                ppuIn->fineX = val & 0x07;
+                ppuIn->tRamAddr.coarse_x = val >> 3;
+                ppuIn->adress_latch = 1;
+            }
+            else{
+                ppuIn->tRamAddr.fine_y = val & 0x07;
+                ppuIn->tRamAddr.coarse_y = val >> 3;
+                ppuIn->adress_latch = 0;
+            }
             break;
         case 0x0006: // PPU Address
             if(ppuIn->adress_latch == 0){
-                ppuIn->ppu_address = (val << 8) | (ppuIn->ppu_address & 0x00FF);
+                ppuIn->tRamAddr.reg = (val << 8) | (ppuIn->tRamAddr.reg & 0x00FF);
                 ppuIn->adress_latch = 1;
 
             }
             else{
-                ppuIn->ppu_address = (ppuIn->ppu_address & 0xFF00) | val;
+                ppuIn->tRamAddr.reg = (ppuIn->tRamAddr.reg & 0xFF00) | val;
+                ppuIn->vRamAddr = ppuIn->tRamAddr;
                 ppuIn->adress_latch = 0;
 
             }
             break;
         case 0x0007: // PPU Data
-            ppuWrite(ppuIn, ppuIn->ppu_address, val);
-            ppuIn->ppu_address++;
+            ppuWrite(ppuIn, ppuIn->vRamAddr.reg, val);
+            ppuIn->vRamAddr.reg += (ppuIn->control.increment_mode ? 32 : 1);
             break;
     }
 }
@@ -287,13 +313,151 @@ void connectCartridge(ppu2C02* ppuIn, cartridge* cart){
     ppuIn->cart = cart;
 }
 
+void incrementScrollX(ppu2C02* ppu)
+{
+    // when rendering is enabled
+    if (ppu->mask.render_background || ppu->mask.render_sprites)
+    {
+        // name table is 32x30 tiles, so wrap x scroll around
+        // if we overflow the current name table
+        if (ppu->vRamAddr.coarse_x == 31)
+        {
+            ppu->vRamAddr.coarse_x = 0;
+            ppu->vRamAddr.nametable_x = ~ppu->vRamAddr.nametable_x;
+        }
+        else
+        {
+            ppu->vRamAddr.coarse_x++;
+        }
+    }
+}
+
+void incrementScrollY(ppu2C02* ppu){
+    // when rendering is enabled
+    if (ppu->mask.render_background || ppu->mask.render_sprites)
+    {
+        if (ppu->vRamAddr.fine_y < 7)
+        {
+            ppu->vRamAddr.fine_y++;
+        }
+        else
+        {
+            ppu->vRamAddr.fine_y = 0;
+
+            // name table is 32x30 tiles, so wrap y scroll around
+            // if we overflow the current name table
+            if (ppu->vRamAddr.coarse_y == 29)
+            {
+                ppu->vRamAddr.coarse_y = 0;
+                ppu->vRamAddr.nametable_y = ~ppu->vRamAddr.nametable_y;
+            }
+            else if (ppu->vRamAddr.coarse_y == 31)
+            {
+                ppu->vRamAddr.coarse_y = 0;
+            }
+            else
+            {
+                ppu->vRamAddr.coarse_y++;
+            }
+        }
+    }
+}
+
+void resetAddressX(ppu2C02* ppu){
+    // when rendering is enabled
+    if (ppu->mask.render_background || ppu->mask.render_sprites)
+    {
+        ppu->vRamAddr.nametable_x = ppu->tRamAddr.nametable_x;
+        ppu->vRamAddr.coarse_x = ppu->tRamAddr.coarse_x;
+    }
+}
+
+void resetAddressY(ppu2C02* ppu){
+    // when rendering is enabled
+    if (ppu->mask.render_background || ppu->mask.render_sprites)
+    {
+        ppu->vRamAddr.fine_y = ppu->tRamAddr.fine_y;
+        ppu->vRamAddr.nametable_y = ppu->tRamAddr.nametable_y;
+        ppu->vRamAddr.coarse_y = ppu->tRamAddr.coarse_y;
+    }
+}
+
+void loadBackgroundShifters(ppu2C02* ppu){
+    ppu->bgShifterPatternLo = (ppu->bgShifterPatternLo & 0xFF00) | ppu->bgNextTileLsb;
+    ppu->bgShifterPatternHi = (ppu->bgShifterPatternHi & 0xFF00) | ppu->bgNextTileMsb;
+
+    ppu->bgShifterAttribLo = (ppu->bgShifterAttribLo & 0xFF00) | ((ppu->bgNextTileAttrib & 0x01) ? 0xFF : 0x00);
+    ppu->bgShifterAttribHi = (ppu->bgShifterAttribHi & 0xFF00) | ((ppu->bgNextTileAttrib & 0x02) ? 0xFF : 0x00);
+}
+
+void updateShifters(ppu2C02* ppu){
+    if(ppu->mask.render_background){
+        ppu->bgShifterPatternLo <<= 1;
+        ppu->bgShifterPatternHi <<= 1;
+
+        ppu->bgShifterAttribLo <<= 1;
+        ppu->bgShifterAttribHi <<= 1;
+    }
+}
+
 void ppuClock(ppu2C02* ppu) {
 
-    if(ppu->scanline == -1 && ppu->cycle == 1) {
-        ppu->status.vertical_blank = 0;
-        ppu->status.sprite_overflow = 0;
-        ppu->status.sprite_zero_hit = 0;
+    if(ppu->scanline >= -1 && ppu->scanline < 240)
+    {
+        if (ppu->scanline == -1 && ppu->cycle == 1) {
+            ppu->status.vertical_blank = 0;
+        }
+
+        if((ppu->cycle >= 2 && ppu->cycle < 258) || (ppu->cycle >= 321 && ppu->cycle < 338))
+        {
+            updateShifters(ppu);
+
+            switch ((ppu->cycle - 1) % 8){
+                case 0:
+                    loadBackgroundShifters(ppu);
+                    ppu->bgNextTileId = ppuRead(ppu, 0x2000 | (ppu->vRamAddr.reg & 0x0FFF), false);
+                    break;
+                case 2:
+                    ppu->bgNextTileAttrib = ppuRead(ppu, 0x23C0 | (ppu->vRamAddr.nametable_y << 11)
+                                                         | (ppu->vRamAddr.nametable_x << 10)
+                                                         | ((ppu->vRamAddr.coarse_y >> 2) << 3)
+                                                         | (ppu->vRamAddr.coarse_x >> 2), false);
+                    if(ppu->vRamAddr.coarse_y & 0x02) ppu->bgNextTileAttrib >>= 4;
+                    if(ppu->vRamAddr.coarse_x & 0x02) ppu->bgNextTileAttrib >>= 2;
+                    ppu->bgNextTileAttrib &= 0x03;
+                    break;
+                case 4:
+                    ppu->bgNextTileLsb = ppuRead(ppu, (ppu->control.pattern_background << 12)
+                                                    + ((uint16_t)ppu->bgNextTileId << 4)
+                                                    + (ppu->vRamAddr.fine_y) + 0, false);
+                    break;
+                case 6:
+                    ppu->bgNextTileMsb = ppuRead(ppu, (ppu->control.pattern_background << 12)
+                                                    + ((uint16_t)ppu->bgNextTileId << 4)
+                                                    + (ppu->vRamAddr.fine_y) + 8, false);
+                    break;
+                case 7:
+                    incrementScrollX(ppu);
+                    break;
+            }
+        }
+
+        if(ppu->cycle == 256)
+        {
+            incrementScrollY(ppu);
+        }
+        if(ppu->cycle == 257){
+            resetAddressX(ppu);
+        }
+        if(ppu->scanline == -1 && ppu->cycle >= 280 && ppu->cycle < 305){
+            resetAddressY(ppu);
+        }
+        if(ppu->scanline == 240){
+            // do nothing
+        }
     }
+
+
 
     // Set vertical blank flag when end of scanline is reached
     if(ppu->scanline == 241 && ppu->cycle == 1) {
@@ -303,9 +467,22 @@ void ppuClock(ppu2C02* ppu) {
         }
     }
 
-    // Simulate rendering noise with black or white pixels
-//    pixel randomPixel = ppu->paletteScreen[rand() % 2 ? 0x3F : 0x30];
-//    setImagePixel(ppu->screen, ppu->cycle - 1, ppu->scanline, randomPixel);
+    uint8_t bgPixel = 0x00;
+    uint8_t bgPalette = 0x00;
+
+    if(ppu->mask.render_background){
+        uint16_t bitMux = 0x8000 >> ppu->fineX;
+        uint8_t p0Pixel = (ppu->bgShifterPatternLo & bitMux) > 0;
+        uint8_t p1Pixel = (ppu->bgShifterPatternHi & bitMux) > 0;
+        bgPixel = (p1Pixel << 1) | p0Pixel;
+
+        uint8_t bgPal0 = (ppu->bgShifterAttribLo & bitMux) > 0;
+        uint8_t bgPal1 = (ppu->bgShifterAttribHi & bitMux) > 0;
+        bgPalette = (bgPal1 << 1) | bgPal0;
+    }
+
+    pixel currentPixel = getColorFromPalette(ppu, bgPalette, bgPixel);
+    setImagePixel(ppu->screen, ppu->cycle - 1, ppu->scanline, currentPixel);
 
     // Advance the renderer
     ppu->cycle++;
