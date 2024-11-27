@@ -130,11 +130,11 @@ void ppuInit(ppu2C02* ppuIn);
 void ppuDestroy(ppu2C02* ppuIn);
 
 // writes to and reads from main bus
-uint8_t ppuCpuRead(cpu6502* cpu, ppu2C02* ppuIn, uint16_t addr, int readOnly);
-void ppuCpuWrite(cpu6502* cpu, ppu2C02* ppuIn, uint16_t addr, uint8_t val);
+uint8_t ppuCpuRead(ppu2C02* ppuIn, uint16_t addr, int readOnly);
+void ppuCpuWrite(ppu2C02* ppuIn, uint16_t addr, uint8_t val);
 
 // writes to and reads from ppu bus
-uint8_t ppuRead(ppu2C02* ppuIn, uint16_t addr, int readOnly);
+uint8_t ppuRead(ppu2C02* ppuIn, uint16_t addr);
 void ppuWrite(ppu2C02* ppuIn, uint16_t addr, uint8_t val);
 
 
@@ -143,14 +143,8 @@ void ppuClock(ppu2C02* ppuIn);
 
 
 // Image functions
-
-static pixel createPixel(uint8_t r, uint8_t g, uint8_t b, uint8_t a);
-static int pixelEquals(pixel p1, pixel p2);
-
-static image* createImage(int32_t width, int32_t height);
 void freeImage(image* img);
 
-static int setImagePixel(image* img, int32_t x, int32_t y, pixel p);
 pixel getImagePixel(image* img, int32_t x, int32_t y);
 
 // Debugging

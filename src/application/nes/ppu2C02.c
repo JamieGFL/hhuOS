@@ -116,7 +116,7 @@ void ppuDestroy(ppu2C02* ppuIn){
     freeImage(ppuIn->image_patternTable[1]);
 }
 
-uint8_t ppuCpuRead(cpu6502* cpu, ppu2C02* ppuIn, uint16_t addr, int readOnly){
+uint8_t ppuCpuRead(ppu2C02* ppuIn, uint16_t addr, int readOnly){
     uint8_t data = 0x00;
 
     switch(addr){
@@ -139,7 +139,7 @@ uint8_t ppuCpuRead(cpu6502* cpu, ppu2C02* ppuIn, uint16_t addr, int readOnly){
             break;
         case 0x0007: // PPU Data
             data = ppuIn->ppu_data_buffer;
-            ppuIn->ppu_data_buffer = ppuRead(ppuIn, ppuIn->vRamAddr.reg, readOnly);
+            ppuIn->ppu_data_buffer = ppuRead(ppuIn, ppuIn->vRamAddr.reg);
 
             if(ppuIn->vRamAddr.reg >= 0x3F00) {
                 data = ppuIn->ppu_data_buffer; }
@@ -150,7 +150,7 @@ uint8_t ppuCpuRead(cpu6502* cpu, ppu2C02* ppuIn, uint16_t addr, int readOnly){
     return data;
 }
 
-void ppuCpuWrite(cpu6502* cpu, ppu2C02* ppuIn, uint16_t addr, uint8_t val){
+void ppuCpuWrite(ppu2C02* ppuIn, uint16_t addr, uint8_t val){
 
     switch(addr){
         case 0x0000: // Control
@@ -199,14 +199,15 @@ void ppuCpuWrite(cpu6502* cpu, ppu2C02* ppuIn, uint16_t addr, uint8_t val){
     }
 }
 
-uint8_t ppuRead(ppu2C02* ppuIn, uint16_t addr, int readOnly){
+uint8_t ppuRead(ppu2C02* ppuIn, uint16_t addr){
     uint8_t data = 0x00;
     addr &= 0x3FFF;
 
     if(cartPpuRead(ppuIn, ppuIn->cart, addr, &data)){
         // do nothing
     }
-    else if(addr >= 0x0000 && addr <= 0x1FFF){
+    // addr >= 0x0000 && addr <= 0x1FFF
+    else if(addr <= 0x1FFF){
         data = ppuIn->patternTable[(addr & 0x1000) >> 12][addr & 0x0FFF];
     }
     // nametable mirroring
@@ -214,7 +215,8 @@ uint8_t ppuRead(ppu2C02* ppuIn, uint16_t addr, int readOnly){
         addr &= 0x0FFF;
         // vertical
         if(ppuIn->cart->cMirror == VERTICAL){
-            if(addr >= 0x0000 && addr <= 0x03FF){
+            // addr >= 0x0000 && addr <= 0x1FFF
+            if(addr <= 0x03FF){
                 data = ppuIn->nametable[0][addr & 0x03FF];
             }
             else if(addr >= 0x0400 && addr <= 0x07FF){
@@ -229,7 +231,8 @@ uint8_t ppuRead(ppu2C02* ppuIn, uint16_t addr, int readOnly){
         }
         else if(ppuIn->cart->cMirror == HORIZONTAL){
             // horizontal
-            if(addr >= 0x0000 && addr <= 0x03FF){
+            // addr >= 0x0000 && addr <= 0x03FF
+            if(addr <= 0x03FF){
                 data = ppuIn->nametable[0][addr & 0x03FF];
             }
             else if(addr >= 0x0400 && addr <= 0x07FF){
@@ -269,7 +272,8 @@ void ppuWrite(ppu2C02* ppuIn, uint16_t addr, uint8_t val){
         addr &= 0x0FFF;
         // vertical
         if(ppuIn->cart->cMirror == VERTICAL){
-            if(addr >= 0x0000 && addr <= 0x03FF){
+            // addr >= 0x0000 && addr <= 0x03FF
+            if(addr <= 0x03FF){
                 ppuIn->nametable[0][addr & 0x03FF] = val;
             }
             else if(addr >= 0x0400 && addr <= 0x07FF){
@@ -415,13 +419,13 @@ void ppuClock(ppu2C02* ppu) {
             switch ((ppu->cycle - 1) % 8){
                 case 0:
                     loadBackgroundShifters(ppu);
-                    ppu->bgNextTileId = ppuRead(ppu, 0x2000 | (ppu->vRamAddr.reg & 0x0FFF), false);
+                    ppu->bgNextTileId = ppuRead(ppu, 0x2000 | (ppu->vRamAddr.reg & 0x0FFF));
                     break;
                 case 2:
                     ppu->bgNextTileAttrib = ppuRead(ppu, 0x23C0 | (ppu->vRamAddr.nametable_y << 11)
                                                          | (ppu->vRamAddr.nametable_x << 10)
                                                          | ((ppu->vRamAddr.coarse_y >> 2) << 3)
-                                                         | (ppu->vRamAddr.coarse_x >> 2), false);
+                                                         | (ppu->vRamAddr.coarse_x >> 2));
                     if(ppu->vRamAddr.coarse_y & 0x02) ppu->bgNextTileAttrib >>= 4;
                     if(ppu->vRamAddr.coarse_x & 0x02) ppu->bgNextTileAttrib >>= 2;
                     ppu->bgNextTileAttrib &= 0x03;
@@ -429,12 +433,12 @@ void ppuClock(ppu2C02* ppu) {
                 case 4:
                     ppu->bgNextTileLsb = ppuRead(ppu, (ppu->control.pattern_background << 12)
                                                     + ((uint16_t)ppu->bgNextTileId << 4)
-                                                    + (ppu->vRamAddr.fine_y) + 0, false);
+                                                    + (ppu->vRamAddr.fine_y) + 0);
                     break;
                 case 6:
                     ppu->bgNextTileMsb = ppuRead(ppu, (ppu->control.pattern_background << 12)
                                                     + ((uint16_t)ppu->bgNextTileId << 4)
-                                                    + (ppu->vRamAddr.fine_y) + 8, false);
+                                                    + (ppu->vRamAddr.fine_y) + 8);
                     break;
                 case 7:
                     incrementScrollX(ppu);
@@ -499,14 +503,9 @@ void ppuClock(ppu2C02* ppu) {
 
 // Image functions
 
-
 static pixel createPixel(uint8_t r, uint8_t g, uint8_t b, uint8_t a){
     pixel p = {r, g, b, a};
     return p;
-}
-
-static int pixelEquals(pixel p1, pixel p2){
-    return p1.r == p2.r && p1.g == p2.g && p1.b == p2.b && p1.a == p2.a;
 }
 
 static image* createImage(int32_t width, int32_t height){
@@ -544,7 +543,7 @@ pixel getImagePixel(image* img, int32_t x, int32_t y){
 // Debugging
 
 static pixel getColorFromPalette(ppu2C02 *ppuIn, uint8_t palette, uint8_t pixel) {
-    return ppuIn->paletteScreen[ppuRead(ppuIn,0x3F00 + (palette << 2) + pixel, 0) & 0x3F];
+    return ppuIn->paletteScreen[ppuRead(ppuIn,0x3F00 + (palette << 2) + pixel) & 0x3F];
 }
 image* getScreenImage(ppu2C02* ppuIn);
 image* getNametableImage(ppu2C02* ppuIn, int index);
@@ -555,8 +554,8 @@ image* getPatternTableImage(ppu2C02* ppuIn, int index, uint8_t palette){
             uint16_t offset = yTile * 256 + xTile * 16;
 
             for (int row = 0; row < 8; ++row) {
-                uint8_t lsb = ppuRead(ppuIn, index * 0x1000 + offset + row + 0x0000, false); // least significant bit, 0x1000 = 4 KB
-                uint8_t msb = ppuRead(ppuIn, index * 0x1000 + offset + row + 0x0008, false); // most significant bit
+                uint8_t lsb = ppuRead(ppuIn, index * 0x1000 + offset + row + 0x0000); // least significant bit, 0x1000 = 4 KB
+                uint8_t msb = ppuRead(ppuIn, index * 0x1000 + offset + row + 0x0008); // most significant bit
 
                 for (int col = 0; col < 8; ++col) {
                     uint8_t pixel = (lsb & 0x01) + (msb & 0x01);

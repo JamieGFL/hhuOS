@@ -227,6 +227,11 @@ uint32_t load_program(const Util::String &program, uint16_t nOffset) {
 }
 
 
+// how to use
+// commandline: nes <rom>
+// Beispiel: nes nestest.nes
+
+
 // main loop
 int main(int argc, char ** argv){
     cpu6502 cpu;
@@ -240,8 +245,14 @@ int main(int argc, char ** argv){
 
     // build string
     char path[256]; // Allocate enough space for the full path
+    if(argc == 1){
+        snprintf(path, sizeof(path), "user/nes/nestest.nes");
+    }
+    else
+    {
     const char* basePath = "user/nes/";
     snprintf(path, sizeof(path), "%s%s", basePath, argv[1]);
+    }
 
     cartridgeInit(&cart, path);
     insertCartridge(&nesBus, &cart);
@@ -282,6 +293,17 @@ int main(int argc, char ** argv){
 
 
         Util::Io::Key key = keyDecoder.getCurrentKey();
+
+        nesBus.controller[0] = 0x00;
+        nesBus.controller[0] |= (key.isPressed() && key.getScancode() == Util::Io::Key::X) ? 0x80 : 0x00;
+        nesBus.controller[0] |= (key.isPressed() && key.getScancode() == Util::Io::Key::E) ? 0x40 : 0x00;
+        nesBus.controller[0] |= (key.isPressed() && key.getScancode() == Util::Io::Key::A) ? 0x20 : 0x00;
+        nesBus.controller[0] |= (key.isPressed() && key.getScancode() == Util::Io::Key::S) ? 0x10 : 0x00;
+        nesBus.controller[0] |= (key.isPressed() && key.getScancode() == Util::Io::Key::UP) ? 0x08 : 0x00;
+        nesBus.controller[0] |= (key.isPressed() && key.getScancode() == Util::Io::Key::DOWN) ? 0x04 : 0x00;
+        nesBus.controller[0] |= (key.isPressed() && key.getScancode() == Util::Io::Key::LEFT) ? 0x02 : 0x00;
+        nesBus.controller[0] |= (key.isPressed() && key.getScancode() == Util::Io::Key::RIGHT) ? 0x01 : 0x00;
+
         if(running){
             if (keyCode != -1 && keyDecoder.parseScancode(keyCode)) {
                 if (key.isPressed() && key.getScancode() == Util::Io::Key::SPACE) {
@@ -303,7 +325,7 @@ int main(int argc, char ** argv){
     }
     // clean up
     delete lfb;
-    bDestroy(&nesBus);
+    //bDestroy(&nesBus);
 
 
     return 0;

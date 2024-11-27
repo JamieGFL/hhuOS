@@ -42,8 +42,8 @@ void freeMemory(memoryChunk* mem);
 void cartridgeInit(cartridge* cartridgeIn, const char* filename);
 
 // writes to and reads from main bus
-int cartCpuRead(cpu6502* cpu, cartridge* cart, uint16_t addr, uint8_t* data);
-int cartCpuWrite(cpu6502* cpu, cartridge* cart, uint16_t addr, uint8_t val);
+int cartCpuRead(cartridge* cart, uint16_t addr, uint8_t* data);
+int cartCpuWrite(cartridge* cart, uint16_t addr, uint8_t val);
 
 // writes to and reads from ppu bus
 int cartPpuRead(ppu2C02* ppuIn, cartridge* cart, uint16_t addr, uint8_t* data);

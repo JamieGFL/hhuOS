@@ -15,6 +15,10 @@ typedef struct {
     ppu2C02* ppu;
     cartridge* cart;
 
+    // controller
+    uint8_t controller[2];
+    uint8_t controllerState[2];
+
     // bus
     bus* busBase;
 

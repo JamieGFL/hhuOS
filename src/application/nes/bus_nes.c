@@ -39,28 +39,35 @@ void setBus(bus_nes *b) {
 
 void nes_bus_Write(bus* b, uint16_t addr, uint8_t val) {
 
-        if(cartCpuWrite(nesBus->cpu, nesBus->cart, addr, val)){
+        if(cartCpuWrite(nesBus->cart, addr, val)){
             // do nothing
         }
         else if(addr <= 0x1FFF){
             b->ram[addr & 0x07FF] = val;
         }
         else if(addr >= 0x2000 && addr <= 0x3FFF){
-            ppuCpuWrite(nesBus->cpu, nesBus->ppu, addr & 0x0007, val);
+            ppuCpuWrite(nesBus->ppu, addr & 0x0007, val);
+        }
+        else if(addr >= 0x4016 && addr <= 0x4017){
+            nesBus->controllerState[addr & 0x0001] = nesBus->controller[addr & 0x0001];
         }
 }
 
 uint8_t nes_bus_Read(bus* b, uint16_t addr, int readOnly) {
     uint8_t data = 0x00;
 
-    if(cartCpuRead(nesBus->cpu, nesBus->cart, addr, &data)){
+    if(cartCpuRead(nesBus->cart, addr, &data)){
         // do nothing
     }
     else if(addr <= 0x1FFF){
         data = b->ram[addr & 0x07FF];
     }
     else if(addr >= 0x2000 && addr <= 0x3FFF){
-        data = ppuCpuRead(nesBus->cpu, nesBus->ppu, addr & 0x0007, readOnly);
+        data = ppuCpuRead(nesBus->ppu, addr & 0x0007, readOnly);
+    }
+    else if(addr >= 0x4016 && addr <= 0x4017){
+        data = (nesBus->controllerState[addr & 0x0001] & 0x80) > 0;
+        nesBus->controllerState[addr & 0x0001] <<= 1;
     }
 
     if(readOnly) {

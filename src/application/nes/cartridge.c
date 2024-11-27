@@ -77,7 +77,7 @@ void cartridgeInit(cartridge* cartridgeIn, const char* filename){
     fclose(file);
 }
 
-int cartCpuRead(cpu6502* cpu, cartridge* cart, uint16_t addr, uint8_t* data){
+int cartCpuRead(cartridge* cart, uint16_t addr, uint8_t* data){
     uint32_t mappedAddr = 0;
     if(cpuMapRead(cart->map, addr, &mappedAddr)){
         *data = cart->prg.data[mappedAddr];
@@ -88,7 +88,7 @@ int cartCpuRead(cpu6502* cpu, cartridge* cart, uint16_t addr, uint8_t* data){
     }
 }
 
-int cartCpuWrite(cpu6502* cpu, cartridge* cart, uint16_t addr, uint8_t val){
+int cartCpuWrite(cartridge* cart, uint16_t addr, uint8_t val){
     uint32_t mappedAddr = 0;
     if(cpuMapWrite(cart->map, addr, &mappedAddr)){
         cart->prg.data[mappedAddr] = val;
@@ -101,7 +101,7 @@ int cartCpuWrite(cpu6502* cpu, cartridge* cart, uint16_t addr, uint8_t val){
 
 int cartPpuRead(ppu2C02* ppuIn, cartridge* cart, uint16_t addr, uint8_t* data){
     uint32_t mappedAddr = 0;
-    if(ppuMapRead(cart->map, ppuIn, addr, &mappedAddr)){
+    if(ppuMapRead(addr, &mappedAddr)){
         *data = cart->chr.data[mappedAddr];
         return 1;
     }

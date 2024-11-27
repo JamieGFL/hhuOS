@@ -11,8 +11,8 @@ void mapper000Init(mapper* m, uint8_t prgBanks, uint8_t chrBanks);
 
 int cpuMapRead(mapper* m, uint16_t addr, uint32_t* mapped_addr);
 int cpuMapWrite(mapper* m, uint16_t addr, uint32_t* mapped_addr);
-int ppuMapRead(mapper* m, ppu2C02* ppu, uint16_t addr, uint32_t* mapped_addr);
-int ppuMapWrite(mapper* m, ppu2C02* ppu, uint16_t addr, uint32_t* mapped_addr);
+int ppuMapRead(uint16_t addr, uint32_t* mapped_addr);
+int ppuMapWrite();
 
 #ifdef __cplusplus
 }
