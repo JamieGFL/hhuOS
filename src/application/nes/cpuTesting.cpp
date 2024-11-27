@@ -23,6 +23,7 @@
 #include <cstdio>
 
 auto lfb = (Util::Graphic::LinearFrameBuffer*)nullptr;
+auto bLFB = (Util::Graphic::BufferedLinearFrameBuffer*)nullptr;
 
 // nes
 static  bus_nes nesBus;
@@ -66,13 +67,6 @@ void drawText(const Util::String& text, uint32_t x, uint32_t y, Util::Graphic::C
 void drawRAM(int x, int y, uint16_t addr, int rows, int columns, Util::Graphic::StringDrawer* stringDrawer, Util::Graphic::PixelDrawer* pixelDrawer){
     Util::Graphic::Color textColor(255, 255, 255); // White color for text
 
-    //clear RAM area
-    for (int i = 0; i < rows * 15; ++i) {
-        for (int j = 0; j < columns * 15; ++j) {
-            pixelDrawer->drawPixel(x + j, y + i, clearColor);
-        }
-    }
-
     for (int row = 0; row < rows; ++row) {
         // mock data for testing instead of hex(addr, 4)
         Util::String line = Util::String("$") + hex(addr, 4) + Util::String(": ");
@@ -89,13 +83,6 @@ void drawCPU(int x, int y, Util::Graphic::StringDrawer* stringDrawer, Util::Grap
     Util::Graphic::Color activeColor(0, 255, 0);   // Green for active flags
     Util::Graphic::Color inactiveColor(255, 0, 0); // Red for inactive flags
     Util::Graphic::Color textColor(255, 255, 255);     // White for text
-
-    // clear CPU area
-    for (int i = 0; i < 200; ++i) {
-        for (int j = 0; j < 80; ++j) {
-            pixelDrawer->drawPixel(x + i, y + j, clearColor);
-        }
-    }
 
     drawText(Util::String("STATUS:"), x, y, textColor, stringDrawer);
 
@@ -129,13 +116,6 @@ void drawCPU(int x, int y, Util::Graphic::StringDrawer* stringDrawer, Util::Grap
 void drawInstructions(int x, int y, int nLines, Util::Graphic::StringDrawer* stringDrawer, Util::Graphic::PixelDrawer* pixelDrawer){
     Util::Graphic::Color textColor(255, 255, 255); // White color for other instructions
     Util::Graphic::Color highlightColor(255, 255, 0); // Yellow color for the current instruction
-
-    //clear instruction area
-    for (int i = 0; i < 250; ++i) {
-        for (int j = 0; j < 270; ++j) {
-            pixelDrawer->drawPixel(x + i, y + j, clearColor);
-        }
-    }
 
     auto currentPC = nesBus.cpu->PC;
     int lineY = (nLines >> 1) * 10 + y;
@@ -183,6 +163,14 @@ void drawImage(int x, int y, int width, int height, image* img, Util::Graphic::P
 }
 
 void update(Util::Graphic::StringDrawer* stringDrawer, Util::Graphic::PixelDrawer* pixelDrawer){
+    bLFB->clear();
+
+    // Fill the entire screen with dark green
+    for (int y = 0; y < 700; ++y) {
+        for (int x = 0; x < 800; ++x) {
+            pixelDrawer->drawPixel(x, y, clearColor);
+        }
+    }
     // Draw
     //drawRAM( 8, 2, 0x0000, 16, 16, stringDrawer, pixelDrawer);
     //drawRAM( 8, 172, 0x8000, 16, 16, stringDrawer, pixelDrawer);
@@ -268,19 +256,13 @@ int main(int argc, char ** argv){
     lfbFile.controlFile(Util::Graphic::LinearFrameBuffer::SET_RESOLUTION, Util::Array<uint32_t>({VIDEO_WIDTH, VIDEO_HEIGHT}));
 
     lfb = new Util::Graphic::LinearFrameBuffer(lfbFile);
+    bLFB = new Util::Graphic::BufferedLinearFrameBuffer(*lfb, true);
 
-    auto pixelDrawer = Util::Graphic::PixelDrawer(*lfb);
+    auto pixelDrawer = Util::Graphic::PixelDrawer(*bLFB);
     auto stringDrawer = Util::Graphic::StringDrawer(pixelDrawer);
     Util::Graphic::Ansi::prepareGraphicalApplication(true);
     Util::Io::File::setAccessMode(Util::Io::STANDARD_INPUT, Util::Io::File::NON_BLOCKING);
     Util::Io::KeyDecoder keyDecoder(new Util::Io::DeLayout());
-
-    // Fill the entire screen with dark green
-    for (int y = 0; y < 700; ++y) {
-        for (int x = 0; x < 800; ++x) {
-            pixelDrawer.drawPixel(x, y, clearColor);
-        }
-    }
 
     float elapsedTime = 0;
     clock_t start, end;
@@ -320,11 +302,12 @@ int main(int argc, char ** argv){
         if(key.isPressed() && key.getScancode() == Util::Io::Key::ESC){
             break;
         }
-
+        bLFB->flush();
         end = clock();
     }
     // clean up
     delete lfb;
+    delete bLFB;
     //bDestroy(&nesBus);
 
 
