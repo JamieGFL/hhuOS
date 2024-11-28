@@ -726,7 +726,9 @@ uint8_t PLA(cpu6502* cpu) {
 
 // Push the status register to the stack
 uint8_t PHP(cpu6502* cpu) {
-    cWrite(cpu, 0x0100 + cpu->SP, cpu->status);
+    cWrite(cpu, 0x0100 + cpu->SP, cpu->status | B_FLAG | U_FLAG);
+    setFlag(cpu, B_FLAG, 0);
+    setFlag(cpu, U_FLAG, 0);
     cpu->SP--;
     return 0;
 }
