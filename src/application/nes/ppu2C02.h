@@ -19,7 +19,7 @@ typedef struct pixel {
 typedef struct image {
     int32_t width;
     int32_t height;
-    pixel* data; // Flat array of pixels
+    uint8_t* data; // Flat array of pixels
 } image;
 
 typedef struct ppu2C02 {
@@ -145,7 +145,7 @@ void ppuClock(ppu2C02* ppuIn);
 // Image functions
 void freeImage(image* img);
 
-pixel getImagePixel(image* img, int32_t x, int32_t y);
+uint8_t getImagePixel(image* img, int32_t x, int32_t y);
 
 // Debugging
 

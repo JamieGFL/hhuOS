@@ -6,10 +6,10 @@ static int pixelEquals(pixel p1, pixel p2);
 static image* createImage(int32_t width, int32_t height);
 void freeImage(image* img);
 
-static int setImagePixel(image* img, int32_t x, int32_t y, pixel p);
-pixel getImagePixel(image* img, int32_t x, int32_t y);
+static int setImagePixel(image* img, int32_t x, int32_t y, uint8_t p);
+uint8_t getImagePixel(image* img, int32_t x, int32_t y);
 
-static pixel getColorFromPalette(ppu2C02 *ppuIn, uint8_t palette, uint8_t pixel);
+static uint8_t getColorFromPalette(ppu2C02 *ppuIn, uint8_t palette, uint8_t pixel);
 
 void ppuInit(ppu2C02* ppuIn){
     ppuIn->paletteScreen[0x00] = createPixel(84, 84, 84, 255);
@@ -485,7 +485,7 @@ void ppuClock(ppu2C02* ppu) {
         bgPalette = (bgPal1 << 1) | bgPal0;
     }
 
-    pixel currentPixel = getColorFromPalette(ppu, bgPalette, bgPixel);
+    uint8_t currentPixel = getColorFromPalette(ppu, bgPalette, bgPixel);
     setImagePixel(ppu->screen, ppu->cycle - 1, ppu->scanline, currentPixel);
 
     // Advance the renderer
@@ -514,7 +514,7 @@ static image* createImage(int32_t width, int32_t height){
     {
         img->width = width;
         img->height = height;
-        img->data = (pixel *) calloc(width * height, sizeof(pixel));
+        img->data = (uint8_t *) calloc(width * height, sizeof(pixel));
     }
     return img;
 }
@@ -525,7 +525,7 @@ void freeImage(image* img){
     }
 }
 
-static int setImagePixel(image* img, int32_t x, int32_t y, pixel p){
+static int setImagePixel(image* img, int32_t x, int32_t y, uint8_t p){
     if (x >= 0 && x < img->width && y >= 0 && y < img->height) {
         img->data[y * img->width + x] = p;
         return 1; // Success
@@ -533,17 +533,17 @@ static int setImagePixel(image* img, int32_t x, int32_t y, pixel p){
     return 0; // Out of bounds
 }
 
-pixel getImagePixel(image* img, int32_t x, int32_t y){
+uint8_t getImagePixel(image* img, int32_t x, int32_t y){
     if (x >= 0 && x < img->width && y >= 0 && y < img->height) {
         return img->data[y * img->width + x];
     }
-    return createPixel(0, 0, 0, 0); // Out of bounds
+    return 0; // Out of bounds
 }
 
 // Debugging
 
-static pixel getColorFromPalette(ppu2C02 *ppuIn, uint8_t palette, uint8_t pixel) {
-    return ppuIn->paletteScreen[ppuRead(ppuIn,0x3F00 + (palette << 2) + pixel) & 0x3F];
+static uint8_t getColorFromPalette(ppu2C02 *ppuIn, uint8_t palette, uint8_t pixel) {
+    return ppuRead(ppuIn,0x3F00 + (palette << 2) + pixel) & 0x3F;
 }
 image* getScreenImage(ppu2C02* ppuIn);
 image* getNametableImage(ppu2C02* ppuIn, int index);

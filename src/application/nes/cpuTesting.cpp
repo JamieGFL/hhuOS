@@ -24,6 +24,8 @@
 
 auto lfb = (Util::Graphic::LinearFrameBuffer*)nullptr;
 auto bLFB = (Util::Graphic::BufferedLinearFrameBuffer*)nullptr;
+auto pixelDrawer = (Util::Graphic::PixelDrawer*)nullptr;
+auto stringDrawer = (Util::Graphic::StringDrawer*)nullptr;
 
 // nes
 static  bus_nes nesBus;
@@ -40,13 +42,29 @@ const unsigned int VIDEO_WIDTH = 64;
 
 Util::Graphic::Color clearColor(0, 60, 0, 255); // dark green
 
-void run(float elapsedTime, Util::Graphic::PixelDrawer &pixelDrawer, Util::Graphic::StringDrawer &stringDrawer);
+auto paletteScreen = new Util::Graphic::Color[64]{
+        {84, 84, 84, 255}, {0, 30, 116, 255}, {8, 16, 144, 255}, {48, 0, 136, 255},
+        {68, 0, 100, 255}, {92, 0, 48, 255}, {84, 4, 0, 255}, {60, 24, 0, 255},
+        {32, 42, 0, 255}, {8, 58, 0, 255}, {0, 64, 0, 255}, {0, 60, 0, 255},
+        {0, 50, 60, 255}, {0, 0, 0, 255}, {0, 0, 0, 255}, {0, 0, 0, 255},
+        {152, 150, 152, 255}, {8, 76, 196, 255}, {48, 50, 236, 255}, {92, 30, 228, 255},
+        {136, 20, 176, 255}, {160, 20, 100, 255}, {152, 34, 32, 255}, {120, 60, 0, 255},
+        {84, 90, 0, 255}, {40, 114, 0, 255}, {8, 124, 0, 255}, {0, 118, 40, 255},
+        {0, 102, 120, 255}, {0, 0, 0, 255}, {0, 0, 0, 255}, {0, 0, 0, 255},
+        {236, 238, 236, 255}, {76, 154, 236, 255}, {120, 124, 236, 255}, {176, 98, 236, 255},
+        {228, 84, 236, 255}, {236, 88, 180, 255}, {236, 106, 100, 255}, {212, 136, 32, 255}, {160, 170, 0, 255},
+        {116, 196, 0, 255}, {76, 208, 32, 255}, {56, 204, 108, 255}, {56, 180, 204, 255}, {60, 60, 60, 255},
+        {0, 0, 0, 255}, {0, 0, 0, 255}, {236, 238, 236, 255}, {168, 204, 236, 255}, {188, 188, 236, 255},
+        {212, 178, 236, 255}, {236, 174, 236, 255}, {236, 174, 212, 255}, {236, 180, 176, 255}, {228, 196, 144, 255},
+        {204, 210, 120, 255}, {180, 222, 120, 255}, {168, 226, 144, 255}, {152, 226, 180, 255}, {160, 214, 228, 255},
+        {160, 162, 160, 255}, {0, 0, 0, 255}, {0, 0, 0, 255}
+};
 
-void processAdvanceInputs(Util::Io::KeyDecoder &keyDecoder, int16_t keyCode, const Util::Io::Key &key,
-                          Util::Graphic::PixelDrawer &pixelDrawer, Util::Graphic::StringDrawer &stringDrawer);
+void run(float elapsedTime);
 
-void processUtilityInputs(const Util::Io::Key &key, Util::Graphic::PixelDrawer &pixelDrawer,
-                          Util::Graphic::StringDrawer &stringDrawer);
+void processAdvanceInputs(Util::Io::KeyDecoder &keyDecoder, int16_t keyCode, const Util::Io::Key &key);
+
+void processUtilityInputs(const Util::Io::Key &key);
 
 static Util::String hex(uint32_t intValue, uint8_t length){
     Util::String hexstring("00000000");
@@ -60,11 +78,11 @@ static Util::String hex(uint32_t intValue, uint8_t length){
     return hexstring;
 }
 
-void drawText(const Util::String& text, uint32_t x, uint32_t y, Util::Graphic::Color color, Util::Graphic::StringDrawer* stringDrawer){
+void drawText(const Util::String& text, uint32_t x, uint32_t y, Util::Graphic::Color color){
     stringDrawer->drawString(Util::Graphic::Fonts::ACORN_8x8, x, y, static_cast<const char*>(text), color, Util::Graphic::Colors::INVISIBLE);
 }
 
-void drawRAM(int x, int y, uint16_t addr, int rows, int columns, Util::Graphic::StringDrawer* stringDrawer, Util::Graphic::PixelDrawer* pixelDrawer){
+void drawRAM(int x, int y, uint16_t addr, int rows, int columns){
     Util::Graphic::Color textColor(255, 255, 255); // White color for text
 
     for (int row = 0; row < rows; ++row) {
@@ -75,16 +93,16 @@ void drawRAM(int x, int y, uint16_t addr, int rows, int columns, Util::Graphic::
             line += hex(nes_bus_Read(nesBus.busBase, addr, 1), 2) + Util::String(" ");
             addr++;
         }
-        drawText(line, x, y + row * 10, textColor, stringDrawer); // Adjust spacing as needed
+        drawText(line, x, y + row * 10, textColor); // Adjust spacing as needed
     }
 }
 
-void drawCPU(int x, int y, Util::Graphic::StringDrawer* stringDrawer, Util::Graphic::PixelDrawer* pixelDrawer){
+void drawCPU(int x, int y){
     Util::Graphic::Color activeColor(0, 255, 0);   // Green for active flags
     Util::Graphic::Color inactiveColor(255, 0, 0); // Red for inactive flags
     Util::Graphic::Color textColor(255, 255, 255);     // White for text
 
-    drawText(Util::String("STATUS:"), x, y, textColor, stringDrawer);
+    drawText(Util::String("STATUS:"), x, y, textColor);
 
     // Draw each flag
     Util::Array<Util::Pair<Util::String, bool>> flags = {
@@ -100,20 +118,20 @@ void drawCPU(int x, int y, Util::Graphic::StringDrawer* stringDrawer, Util::Grap
 
     int flagX = x + 64;
     for (const auto& [label, state] : flags) {
-        drawText(label, flagX, y, state ? activeColor : inactiveColor, stringDrawer);
+        drawText(label, flagX, y, state ? activeColor : inactiveColor);
         flagX += 16;
     }
 
 
     // Draw register values
-    drawText(Util::String("PC: $") + hex(nesBus.cpu->PC, 4), x, y + 20, textColor, stringDrawer);
-    drawText(Util::String("A: $") + hex(nesBus.cpu->A, 2) + "  [" + Util::String::format("%d", nesBus.cpu->A) + "]", x, y + 30, textColor, stringDrawer);
-    drawText(Util::String("X: $") + hex(nesBus.cpu->X, 2) + "  [" + Util::String::format("%d", nesBus.cpu->X) + "]", x, y + 40, textColor, stringDrawer);
-    drawText(Util::String("Y: $") + hex(nesBus.cpu->Y, 2) + "  [" + Util::String::format("%d", nesBus.cpu->Y) + "]", x, y + 50, textColor, stringDrawer);
-    drawText(Util::String("Stack P: $") + hex(nesBus.cpu->SP, 4), x, y + 60, textColor, stringDrawer);
+    drawText(Util::String("PC: $") + hex(nesBus.cpu->PC, 4), x, y + 20, textColor);
+    drawText(Util::String("A: $") + hex(nesBus.cpu->A, 2) + "  [" + Util::String::format("%d", nesBus.cpu->A) + "]", x, y + 30, textColor);
+    drawText(Util::String("X: $") + hex(nesBus.cpu->X, 2) + "  [" + Util::String::format("%d", nesBus.cpu->X) + "]", x, y + 40, textColor);
+    drawText(Util::String("Y: $") + hex(nesBus.cpu->Y, 2) + "  [" + Util::String::format("%d", nesBus.cpu->Y) + "]", x, y + 50, textColor);
+    drawText(Util::String("Stack P: $") + hex(nesBus.cpu->SP, 4), x, y + 60, textColor);
 }
 
-void drawInstructions(int x, int y, int nLines, Util::Graphic::StringDrawer* stringDrawer, Util::Graphic::PixelDrawer* pixelDrawer){
+void drawInstructions(int x, int y, int nLines){
     Util::Graphic::Color textColor(255, 255, 255); // White color for other instructions
     Util::Graphic::Color highlightColor(255, 255, 0); // Yellow color for the current instruction
 
@@ -122,12 +140,12 @@ void drawInstructions(int x, int y, int nLines, Util::Graphic::StringDrawer* str
 
     if(currentPC != instructions.entries[MAP_LENGTH-1].address) {
         drawText(instructions.entries[currentPC].instruction,
-                 x, lineY, highlightColor, stringDrawer);
+                 x, lineY, highlightColor);
         while(lineY < (nLines * 10) + y) {
             if(currentPC++ != instructions.entries[MAP_LENGTH-1].address && instructions.entries[currentPC].address  != 0 ) {
                 lineY += 10;
                 drawText(instructions.entries[currentPC].instruction,
-                         x, lineY, textColor, stringDrawer);
+                         x, lineY, textColor);
             }
         }
     }
@@ -140,51 +158,67 @@ void drawInstructions(int x, int y, int nLines, Util::Graphic::StringDrawer* str
             if(currentPC-- != instructions.entries[MAP_LENGTH-1].address && instructions.entries[currentPC].address  != 0 ) {
                 lineY -= 10;
                 drawText(instructions.entries[currentPC].instruction,
-                         x, lineY, textColor, stringDrawer);
+                         x, lineY, textColor);
             }
         }
     }
 }
 
-void drawImage(int x, int y, int width, int height, image* img, Util::Graphic::PixelDrawer* pixelDrawer, int scale = 1){
+extern "C" void drawFrame(uint8_t* frame){
+    for(int i = 0; i < 256; i++){
+        for(int j = 0; j < 240; j++){
+            uint8_t p = frame[i * 240 + j];
+            pixelDrawer->drawPixel( j * 2 , i * 2, paletteScreen[p]);
+        }
+    }
+}
+
+void drawImage(int x, int y, int width, int height, image* img, int scale = 1){
 
     for (int i = 0; i < height; ++i) {
         for (int j = 0; j < width; ++j) {
-            pixel p = getImagePixel(img, j, i);
-            Util::Graphic::Color color(p.r, p.g, p.b, p.a);
+            uint8_t p = getImagePixel(img, j, i);
             //Util::Graphic::Color color(img->data[i * width + j].r, img->data[i * width + j].g, img->data[i * width + j].b, img->data[i * width + j].a);
-            for (int dy = 0; dy < scale; ++dy) {
-                for (int dx = 0; dx < scale; ++dx) {
-                    pixelDrawer->drawPixel(x + j * scale + dx, y + i * scale + dy, color);
-                }
-            }
+                    pixelDrawer->drawPixel(x + j, y + i , paletteScreen[p]);
+
         }
     }
 }
 
-void update(Util::Graphic::StringDrawer* stringDrawer, Util::Graphic::PixelDrawer* pixelDrawer){
+void drawFrame(int x, int y, int width, int height, image* img, int scale = 1){
+
+    for (int i = 0; i < height; ++i) {
+        for (int j = 0; j < width; ++j) {
+            //int8_t p = getImagePixel(img, j, i);
+            //Util::Graphic::Color color(img->data[i * width + j].r, img->data[i * width + j].g, img->data[i * width + j].b, img->data[i * width + j].a);
+            pixelDrawer->drawPixel(x + j, y + i , paletteScreen[nesBus.ppu->screen->data[i * width + j]]);
+        }
+    }
+}
+
+void update(){
     bLFB->clear();
 
     // Fill the entire screen with dark green
-    for (int y = 0; y < 700; ++y) {
-        for (int x = 0; x < 800; ++x) {
-            pixelDrawer->drawPixel(x, y, clearColor);
-        }
-    }
+//    for (int y = 0; y < 700; ++y) {
+//        for (int x = 0; x < 800; ++x) {
+//            pixelDrawer->drawPixel(x, y, clearColor);
+//        }
+//    }
     // Draw
     //drawRAM( 8, 2, 0x0000, 16, 16, stringDrawer, pixelDrawer);
     //drawRAM( 8, 172, 0x8000, 16, 16, stringDrawer, pixelDrawer);
-    drawCPU( 540, 2, stringDrawer, pixelDrawer);
+    drawCPU( 540, 2);
 
     // x 454, y 72
-    drawInstructions(540, 72, 26, stringDrawer, pixelDrawer);
+    drawInstructions(540, 72, 26);
 
     // visualize pattern table
-    drawImage(540, 350, 128, 128, getPatternTableImage(nesBus.ppu, 0, palette), pixelDrawer, 1);
-    drawImage(672, 350, 128, 128, getPatternTableImage(nesBus.ppu, 1, palette), pixelDrawer, 1);
+    drawImage(540, 350, 128, 128, getPatternTableImage(nesBus.ppu, 0, palette), 1);
+    drawImage(672, 350, 128, 128, getPatternTableImage(nesBus.ppu, 1, palette), 1);
 
     // draw screen
-    drawImage(0, 20, 256, 240, getScreenImage(&nesBus), pixelDrawer, 2);
+    drawFrame(0, 20, 256, 240, getScreenImage(&nesBus), 2);
 
 
     // draw nametable ids
@@ -213,6 +247,94 @@ uint32_t load_program(const Util::String &program, uint16_t nOffset) {
     }
     return tokens.length();
 }
+// ppuIn->paletteScreen[0x00] = createPixel(84, 84, 84, 255);
+//    ppuIn->paletteScreen[0x01] = createPixel(0, 30, 116, 255);
+//    ppuIn->paletteScreen[0x02] = createPixel(8, 16, 144, 255);
+//    ppuIn->paletteScreen[0x03] = createPixel(48, 0, 136, 255);
+//    ppuIn->paletteScreen[0x04] = createPixel(68, 0, 100, 255);
+//    ppuIn->paletteScreen[0x05] = createPixel(92, 0, 48, 255);
+//    ppuIn->paletteScreen[0x06] = createPixel(84, 4, 0, 255);
+//    ppuIn->paletteScreen[0x07] = createPixel(60, 24, 0, 255);
+//    ppuIn->paletteScreen[0x08] = createPixel(32, 42, 0, 255);
+//    ppuIn->paletteScreen[0x09] = createPixel(8, 58, 0, 255);
+//    ppuIn->paletteScreen[0x0A] = createPixel(0, 64, 0, 255);
+//    ppuIn->paletteScreen[0x0B] = createPixel(0, 60, 0, 255);
+//    ppuIn->paletteScreen[0x0C] = createPixel(0, 50, 60, 255);
+//    ppuIn->paletteScreen[0x0D] = createPixel(0, 0, 0, 255);
+//    ppuIn->paletteScreen[0x0E] = createPixel(0, 0, 0, 255);
+//    ppuIn->paletteScreen[0x0F] = createPixel(0, 0, 0, 255);
+//
+//    ppuIn->paletteScreen[0x10] = createPixel(152, 150, 152, 255);
+//    ppuIn->paletteScreen[0x11] = createPixel(8, 76, 196, 255);
+//    ppuIn->paletteScreen[0x12] = createPixel(48, 50, 236, 255);
+//    ppuIn->paletteScreen[0x13] = createPixel(92, 30, 228, 255);
+//    ppuIn->paletteScreen[0x14] = createPixel(136, 20, 176, 255);
+//    ppuIn->paletteScreen[0x15] = createPixel(160, 20, 100, 255);
+//    ppuIn->paletteScreen[0x16] = createPixel(152, 34, 32, 255);
+//    ppuIn->paletteScreen[0x17] = createPixel(120, 60, 0, 255);
+//    ppuIn->paletteScreen[0x18] = createPixel(84, 90, 0, 255);
+//    ppuIn->paletteScreen[0x19] = createPixel(40, 114, 0, 255);
+//    ppuIn->paletteScreen[0x1A] = createPixel(8, 124, 0, 255);
+//    ppuIn->paletteScreen[0x1B] = createPixel(0, 118, 40, 255);
+//    ppuIn->paletteScreen[0x1C] = createPixel(0, 102, 120, 255);
+//    ppuIn->paletteScreen[0x1D] = createPixel(0, 0, 0, 255);
+//    ppuIn->paletteScreen[0x1E] = createPixel(0, 0, 0, 255);
+//    ppuIn->paletteScreen[0x1F] = createPixel(0, 0, 0, 255);
+//
+//    ppuIn->paletteScreen[0x20] = createPixel(236, 238, 236, 255);
+//    ppuIn->paletteScreen[0x21] = createPixel(76, 154, 236, 255);
+//    ppuIn->paletteScreen[0x22] = createPixel(120, 124, 236, 255);
+//    ppuIn->paletteScreen[0x23] = createPixel(176, 98, 236, 255);
+//    ppuIn->paletteScreen[0x24] = createPixel(228, 84, 236, 255);
+//    ppuIn->paletteScreen[0x25] = createPixel(236, 88, 180, 255);
+//    ppuIn->paletteScreen[0x26] = createPixel(236, 106, 100, 255);
+//    ppuIn->paletteScreen[0x27] = createPixel(212, 136, 32, 255);
+//    ppuIn->paletteScreen[0x28] = createPixel(160, 170, 0, 255);
+//    ppuIn->paletteScreen[0x29] = createPixel(116, 196, 0, 255);
+//    ppuIn->paletteScreen[0x2A] = createPixel(76, 208, 32, 255);
+//    ppuIn->paletteScreen[0x2B] = createPixel(56, 204, 108, 255);
+//    ppuIn->paletteScreen[0x2C] = createPixel(56, 180, 204, 255);
+//    ppuIn->paletteScreen[0x2D] = createPixel(60, 60, 60, 255);
+//    ppuIn->paletteScreen[0x2E] = createPixel(0, 0, 0, 255);
+//    ppuIn->paletteScreen[0x2F] = createPixel(0, 0, 0, 255);
+//
+//    ppuIn->paletteScreen[0x30] = createPixel(236, 238, 236, 255);
+//    ppuIn->paletteScreen[0x31] = createPixel(168, 204, 236, 255);
+//    ppuIn->paletteScreen[0x32] = createPixel(188, 188, 236, 255);
+//    ppuIn->paletteScreen[0x33] = createPixel(212, 178, 236, 255);
+//    ppuIn->paletteScreen[0x34] = createPixel(236, 174, 236, 255);
+//    ppuIn->paletteScreen[0x35] = createPixel(236, 174, 212, 255);
+//    ppuIn->paletteScreen[0x36] = createPixel(236, 180, 176, 255);
+//    ppuIn->paletteScreen[0x37] = createPixel(228, 196, 144, 255);
+//    ppuIn->paletteScreen[0x38] = createPixel(204, 210, 120, 255);
+//    ppuIn->paletteScreen[0x39] = createPixel(180, 222, 120, 255);
+//    ppuIn->paletteScreen[0x3A] = createPixel(168, 226, 144, 255);
+//    ppuIn->paletteScreen[0x3B] = createPixel(152, 226, 180, 255);
+//    ppuIn->paletteScreen[0x3C] = createPixel(160, 214, 228, 255);
+//    ppuIn->paletteScreen[0x3D] = createPixel(160, 162, 160, 255);
+//    ppuIn->paletteScreen[0x3E] = createPixel(0, 0, 0, 255);
+//    ppuIn->paletteScreen[0x3F] = createPixel(0, 0, 0, 255);
+//void initNES(){
+//    Util::Graphic::Color paletteScreen[64];
+//    // Create a palette with color values from comment
+//    Util::Array<Util::Graphic::Color> paletteColors = {
+//            {84, 84, 84, 255}, {0, 30, 116, 255}, {8, 16, 144, 255}, {48, 0, 136, 255},
+//            {68, 0, 100, 255}, {92, 0, 48, 255}, {84, 4, 0, 255}, {60, 24, 0, 255},
+//            {32, 42, 0, 255}, {8, 58, 0, 255}, {0, 64, 0, 255}, {0, 60, 0, 255},
+//            {0, 50, 60, 255}, {0, 0, 0, 255}, {0, 0, 0, 255}, {0, 0, 0, 255},
+//            {152, 150, 152, 255}, {8, 76, 196, 255}, {48, 50, 236, 255}, {92, 30, 228, 255},
+//            {136, 20, 176, 255}, {160, 20, 100, 255}, {152, 34, 32, 255}, {120, 60, 0, 255},
+//            {84, 90, 0, 255}, {40, 114, 0, 255}, {8, 124, 0, 255}, {0, 118, 40, 255},
+//            {0, 102, 120, 255}, {0, 0, 0, 255}, {0, 0, 0, 255}, {0, 0, 0, 255},
+//            {236, 238, 236, 255}, {76, 154, 236, 255}, {120, 124, 236, 255}, {176, 98, 236, 255},
+//            {228, 84, 236, 255}, {236, 88, 180, 255}, {236, 106, 100, 255}, {212, 136, 32, 255},
+//            {160, 170, 0, 255}, {116, 196, 0, 255}, {76, 208, 32, 255}, {56, 204, 108, 255},
+//            {56, 180, 204, 255}, {60, 60, 60, 255}, {0, 0, 0, 255}, {0, 0, 0, 255},
+//            {236, 238, 236, 255}, {168, 204, 236, 255}, {188, 188, 236, 255}, {212, 178, 236, 255},
+//            {236, 174, 236, 255}, {236, 174, 212, 255}, {236, 180, 176, 255}, {228, 196, 144, 255},
+//            {204, 210, 120, 255}, {180, 222, 120, 255}, {168, 226, 144, 255}, {152, 226, 180, 255},
+//            {160, 214, 228, 255}, {160, 162, 160, 255}, {0, 0, 0, 255}, {0, 0, 0, 255}  };
+//}
 
 
 // how to use
@@ -230,6 +352,8 @@ int main(int argc, char ** argv){
 
     bInit(&nesBus, &b, &cpu, &ppu);
     setBus(&nesBus);
+
+    //initNES();
 
     // build string
     char path[256]; // Allocate enough space for the full path
@@ -258,8 +382,8 @@ int main(int argc, char ** argv){
     lfb = new Util::Graphic::LinearFrameBuffer(lfbFile);
     bLFB = new Util::Graphic::BufferedLinearFrameBuffer(*lfb, true);
 
-    auto pixelDrawer = Util::Graphic::PixelDrawer(*bLFB);
-    auto stringDrawer = Util::Graphic::StringDrawer(pixelDrawer);
+    pixelDrawer = new Util::Graphic::PixelDrawer(*bLFB);
+    stringDrawer = new Util::Graphic::StringDrawer(*pixelDrawer);
     Util::Graphic::Ansi::prepareGraphicalApplication(true);
     Util::Io::File::setAccessMode(Util::Io::STANDARD_INPUT, Util::Io::File::NON_BLOCKING);
     Util::Io::KeyDecoder keyDecoder(new Util::Io::DeLayout());
@@ -267,7 +391,7 @@ int main(int argc, char ** argv){
     float elapsedTime = 0;
     clock_t start, end;
 
-    update(&stringDrawer, &pixelDrawer);
+    update();
     while (true) {
         auto keyCode = Util::System::in.read();
         elapsedTime = (float)(end - start) / CLOCKS_PER_SEC;
@@ -292,12 +416,12 @@ int main(int argc, char ** argv){
                     running = false;
                 }
             }
-            run(elapsedTime, pixelDrawer, stringDrawer);
+            run(elapsedTime);
         }
         else {
-            processAdvanceInputs(keyDecoder, keyCode, key, pixelDrawer, stringDrawer);
+            processAdvanceInputs(keyDecoder, keyCode, key);
         }
-        processUtilityInputs(key, pixelDrawer, stringDrawer);
+        processUtilityInputs(key);
 
         if(key.isPressed() && key.getScancode() == Util::Io::Key::ESC){
             break;
@@ -314,22 +438,20 @@ int main(int argc, char ** argv){
     return 0;
 }
 
-void processUtilityInputs(const Util::Io::Key &key, Util::Graphic::PixelDrawer &pixelDrawer,
-                          Util::Graphic::StringDrawer &stringDrawer) {
+void processUtilityInputs(const Util::Io::Key &key) {
     if(key.isPressed() && key.getScancode() == Util::Io::Key::ENTER){
         running = true;
     }
     if(key.isPressed() && key.getScancode() == Util::Io::Key::R){
         reset(nesBus.cpu);
-        update(&stringDrawer, &pixelDrawer);
+        update();
     }
     if(key.isPressed() && key.getScancode() == Util::Io::Key::Q){
         (++palette) &= 0x07;
     }
 }
 
-void processAdvanceInputs(Util::Io::KeyDecoder &keyDecoder, int16_t keyCode, const Util::Io::Key &key,
-                          Util::Graphic::PixelDrawer &pixelDrawer, Util::Graphic::StringDrawer &stringDrawer) {
+void processAdvanceInputs(Util::Io::KeyDecoder &keyDecoder, int16_t keyCode, const Util::Io::Key &key) {
     if (keyCode != -1 && keyDecoder.parseScancode(keyCode)) {
         if (key.isPressed() && key.getScancode() == Util::Io::Key::C) {
             do {
@@ -338,7 +460,7 @@ void processAdvanceInputs(Util::Io::KeyDecoder &keyDecoder, int16_t keyCode, con
             do {
                 busClock(&nesBus);
             } while (!complete(nesBus.cpu));
-            update(&stringDrawer, &pixelDrawer);
+            update();
         }
         if (key.isPressed() && key.getScancode() == Util::Io::Key::F) {
             do {
@@ -348,19 +470,19 @@ void processAdvanceInputs(Util::Io::KeyDecoder &keyDecoder, int16_t keyCode, con
                 busClock(&nesBus);
             } while (!complete(nesBus.cpu));
             setFrameComplete(&nesBus, false);
-            update(&stringDrawer, &pixelDrawer);
+            update();
         }
     }
 }
 
-void run(float elapsedTime, Util::Graphic::PixelDrawer &pixelDrawer, Util::Graphic::StringDrawer &stringDrawer) {
+void run(float elapsedTime) {
     if(timeLeft > 0.0f){
         timeLeft -= elapsedTime;
     } else {
         timeLeft += (1.0f / 60.0f) - elapsedTime;
         do (busClock(&nesBus)); while (!frameComplete(&nesBus));
         setFrameComplete(&nesBus, false);
-        update(&stringDrawer, &pixelDrawer);
+        update();
     }
 }
 
