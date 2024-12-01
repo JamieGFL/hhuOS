@@ -22,6 +22,14 @@ typedef struct image {
     uint8_t* data; // Flat array of pixels
 } image;
 
+typedef struct objectAttributeEntry
+{
+    uint8_t y;
+    uint8_t id;
+    uint8_t attribute;
+    uint8_t x;
+} objectAttributeEntry;
+
 typedef struct ppu2C02 {
     cartridge* cart;
 
@@ -116,6 +124,25 @@ typedef struct ppu2C02 {
     uint16_t bgShifterPatternHi;
     uint16_t bgShifterAttribLo;
     uint16_t bgShifterAttribHi;
+
+
+    // OAM - Object Attribute Memory
+    objectAttributeEntry oam[64];
+
+    // pointer into OAM
+    uint8_t* oamPointer;
+    uint8_t oamAddress;
+
+    // sprite scanline
+    objectAttributeEntry spriteScanline[8];
+    uint8_t spriteCount;
+    uint8_t spriteShifterPatternLo[8];
+    uint8_t spriteShifterPatternHi[8];
+    // sprite zero hit possible?
+    bool spriteZeroHit;
+    // sprite zero being rendered?
+    bool spriteZeroRendered;
+
 
 } ppu2C02;
 

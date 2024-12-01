@@ -15,12 +15,19 @@ typedef struct {
     ppu2C02* ppu;
     cartridge* cart;
 
+    // bus
+    bus* busBase;
+
     // controller
     uint8_t controller[2];
     uint8_t controllerState[2];
 
-    // bus
-    bus* busBase;
+    // dma
+    uint8_t dmaPage;
+    uint8_t dmaAddr;
+    uint8_t dmaData;
+    bool dmaTransfer;
+    bool dmaDummy;
 
 } bus_nes;
 

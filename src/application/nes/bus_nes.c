@@ -18,8 +18,12 @@ void bInit(bus_nes* b, bus* bus, cpu6502* cpu, ppu2C02* ppu) {
     b->cpu = cpu;
     b->ppu = ppu;
 
-   // b->cpu = cpu;
-
+    // dma
+    b->dmaPage = 0x00;
+    b->dmaAddr = 0x00;
+    b->dmaData = 0x00;
+    b->dmaTransfer = false;
+    b->dmaDummy = true;
 
     connectBus(b->cpu, b->busBase);
 }
@@ -47,6 +51,11 @@ void nes_bus_Write(bus* b, uint16_t addr, uint8_t val) {
         }
         else if(addr >= 0x2000 && addr <= 0x3FFF){
             ppuCpuWrite(nesBus->ppu, addr & 0x0007, val);
+        }
+        else if(addr == 0x4014){
+            nesBus->dmaPage = val;
+            nesBus->dmaAddr = 0x00;
+            nesBus->dmaTransfer = true;
         }
         else if(addr >= 0x4016 && addr <= 0x4017){
             nesBus->controllerState[addr & 0x0001] = nesBus->controller[addr & 0x0001];
@@ -90,6 +99,26 @@ void busReset(bus_nes* b) {
 void busClock(bus_nes* b) {
     ppuClock(b->ppu);
     if (b->clockCount % 3 == 0) {
+        if(b->dmaTransfer){
+            if(b->dmaDummy){
+                if(b->clockCount % 2 == 1){
+                    b->dmaDummy = false;
+                }
+            }
+            else{
+                if(b->clockCount % 2 == 0){
+                    b->dmaData = nes_bus_Read(b->busBase, (uint16_t)(b->dmaPage << 8 | b->dmaAddr), false);
+                }
+                else{
+                    nesBus->ppu->oamPointer[b->dmaAddr] = b->dmaData;
+                    b->dmaAddr++;
+                    if(b->dmaAddr == 0x00){
+                        b->dmaTransfer = false;
+                        b->dmaDummy = true;
+                    }
+                }
+            }
+        }
         cpuClock(b->cpu);
     }
     if(b->ppu->nmi){

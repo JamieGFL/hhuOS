@@ -19,6 +19,7 @@
 #include "lib/util/graphic/Ansi.h"
 #include "bus_nes.h"
 #include "lib/util/io/stream/FileInputStream.h"
+#include "lib/util/time/Timestamp.h"
 #include <time.h>
 #include <cstdio>
 
@@ -33,6 +34,10 @@ static bus b;
 static cartridge cart;
 bool running = false;
 float timeLeft = 0.0f;
+
+Util::Time::Timestamp fpsTimer;
+uint32_t fpsCounter = 0;
+uint32_t fps = 0;
 
 uint8_t palette = 0x00;
 
@@ -211,7 +216,17 @@ void update(){
     drawCPU( 540, 2);
 
     // x 454, y 72
-    drawInstructions(540, 72, 26);
+    //drawInstructions(540, 72, 26);
+
+    // draw first 26 entries of the OAM
+    for (int i = 0; i < 26; ++i) {
+        Util::String line = hex(i, 2) + Util::String(": (")
+                + Util::String::format("%d", nesBus.ppu->oamPointer[i * 4 + 3]) + Util::String(", ")
+                + Util::String::format("%d", nesBus.ppu->oamPointer[i * 4 + 0]) + Util::String(") ")
+                + Util::String("ID: ") + hex(nesBus.ppu->oamPointer[i * 4 + 1], 2)
+                + Util::String(" AT: ") + hex(nesBus.ppu->oamPointer[i * 4 + 2], 2);
+        drawText(line, 540, 72 + i * 10, Util::Graphic::Colors::WHITE);
+    }
 
     // visualize pattern table
     drawImage(540, 350, 128, 128, getPatternTableImage(nesBus.ppu, 0, palette), 1);
@@ -220,6 +235,8 @@ void update(){
     // draw screen
     drawFrame(0, 20, 256, 240, getScreenImage(&nesBus), 2);
 
+    // draw fps
+    drawText(Util::String("FPS: ") + Util::String::format("%d", fps), 0, 0, Util::Graphic::Colors::WHITE);
 
     // draw nametable ids
 //    for (int i = 0; i < 500; ++i) {
@@ -247,95 +264,6 @@ uint32_t load_program(const Util::String &program, uint16_t nOffset) {
     }
     return tokens.length();
 }
-// ppuIn->paletteScreen[0x00] = createPixel(84, 84, 84, 255);
-//    ppuIn->paletteScreen[0x01] = createPixel(0, 30, 116, 255);
-//    ppuIn->paletteScreen[0x02] = createPixel(8, 16, 144, 255);
-//    ppuIn->paletteScreen[0x03] = createPixel(48, 0, 136, 255);
-//    ppuIn->paletteScreen[0x04] = createPixel(68, 0, 100, 255);
-//    ppuIn->paletteScreen[0x05] = createPixel(92, 0, 48, 255);
-//    ppuIn->paletteScreen[0x06] = createPixel(84, 4, 0, 255);
-//    ppuIn->paletteScreen[0x07] = createPixel(60, 24, 0, 255);
-//    ppuIn->paletteScreen[0x08] = createPixel(32, 42, 0, 255);
-//    ppuIn->paletteScreen[0x09] = createPixel(8, 58, 0, 255);
-//    ppuIn->paletteScreen[0x0A] = createPixel(0, 64, 0, 255);
-//    ppuIn->paletteScreen[0x0B] = createPixel(0, 60, 0, 255);
-//    ppuIn->paletteScreen[0x0C] = createPixel(0, 50, 60, 255);
-//    ppuIn->paletteScreen[0x0D] = createPixel(0, 0, 0, 255);
-//    ppuIn->paletteScreen[0x0E] = createPixel(0, 0, 0, 255);
-//    ppuIn->paletteScreen[0x0F] = createPixel(0, 0, 0, 255);
-//
-//    ppuIn->paletteScreen[0x10] = createPixel(152, 150, 152, 255);
-//    ppuIn->paletteScreen[0x11] = createPixel(8, 76, 196, 255);
-//    ppuIn->paletteScreen[0x12] = createPixel(48, 50, 236, 255);
-//    ppuIn->paletteScreen[0x13] = createPixel(92, 30, 228, 255);
-//    ppuIn->paletteScreen[0x14] = createPixel(136, 20, 176, 255);
-//    ppuIn->paletteScreen[0x15] = createPixel(160, 20, 100, 255);
-//    ppuIn->paletteScreen[0x16] = createPixel(152, 34, 32, 255);
-//    ppuIn->paletteScreen[0x17] = createPixel(120, 60, 0, 255);
-//    ppuIn->paletteScreen[0x18] = createPixel(84, 90, 0, 255);
-//    ppuIn->paletteScreen[0x19] = createPixel(40, 114, 0, 255);
-//    ppuIn->paletteScreen[0x1A] = createPixel(8, 124, 0, 255);
-//    ppuIn->paletteScreen[0x1B] = createPixel(0, 118, 40, 255);
-//    ppuIn->paletteScreen[0x1C] = createPixel(0, 102, 120, 255);
-//    ppuIn->paletteScreen[0x1D] = createPixel(0, 0, 0, 255);
-//    ppuIn->paletteScreen[0x1E] = createPixel(0, 0, 0, 255);
-//    ppuIn->paletteScreen[0x1F] = createPixel(0, 0, 0, 255);
-//
-//    ppuIn->paletteScreen[0x20] = createPixel(236, 238, 236, 255);
-//    ppuIn->paletteScreen[0x21] = createPixel(76, 154, 236, 255);
-//    ppuIn->paletteScreen[0x22] = createPixel(120, 124, 236, 255);
-//    ppuIn->paletteScreen[0x23] = createPixel(176, 98, 236, 255);
-//    ppuIn->paletteScreen[0x24] = createPixel(228, 84, 236, 255);
-//    ppuIn->paletteScreen[0x25] = createPixel(236, 88, 180, 255);
-//    ppuIn->paletteScreen[0x26] = createPixel(236, 106, 100, 255);
-//    ppuIn->paletteScreen[0x27] = createPixel(212, 136, 32, 255);
-//    ppuIn->paletteScreen[0x28] = createPixel(160, 170, 0, 255);
-//    ppuIn->paletteScreen[0x29] = createPixel(116, 196, 0, 255);
-//    ppuIn->paletteScreen[0x2A] = createPixel(76, 208, 32, 255);
-//    ppuIn->paletteScreen[0x2B] = createPixel(56, 204, 108, 255);
-//    ppuIn->paletteScreen[0x2C] = createPixel(56, 180, 204, 255);
-//    ppuIn->paletteScreen[0x2D] = createPixel(60, 60, 60, 255);
-//    ppuIn->paletteScreen[0x2E] = createPixel(0, 0, 0, 255);
-//    ppuIn->paletteScreen[0x2F] = createPixel(0, 0, 0, 255);
-//
-//    ppuIn->paletteScreen[0x30] = createPixel(236, 238, 236, 255);
-//    ppuIn->paletteScreen[0x31] = createPixel(168, 204, 236, 255);
-//    ppuIn->paletteScreen[0x32] = createPixel(188, 188, 236, 255);
-//    ppuIn->paletteScreen[0x33] = createPixel(212, 178, 236, 255);
-//    ppuIn->paletteScreen[0x34] = createPixel(236, 174, 236, 255);
-//    ppuIn->paletteScreen[0x35] = createPixel(236, 174, 212, 255);
-//    ppuIn->paletteScreen[0x36] = createPixel(236, 180, 176, 255);
-//    ppuIn->paletteScreen[0x37] = createPixel(228, 196, 144, 255);
-//    ppuIn->paletteScreen[0x38] = createPixel(204, 210, 120, 255);
-//    ppuIn->paletteScreen[0x39] = createPixel(180, 222, 120, 255);
-//    ppuIn->paletteScreen[0x3A] = createPixel(168, 226, 144, 255);
-//    ppuIn->paletteScreen[0x3B] = createPixel(152, 226, 180, 255);
-//    ppuIn->paletteScreen[0x3C] = createPixel(160, 214, 228, 255);
-//    ppuIn->paletteScreen[0x3D] = createPixel(160, 162, 160, 255);
-//    ppuIn->paletteScreen[0x3E] = createPixel(0, 0, 0, 255);
-//    ppuIn->paletteScreen[0x3F] = createPixel(0, 0, 0, 255);
-//void initNES(){
-//    Util::Graphic::Color paletteScreen[64];
-//    // Create a palette with color values from comment
-//    Util::Array<Util::Graphic::Color> paletteColors = {
-//            {84, 84, 84, 255}, {0, 30, 116, 255}, {8, 16, 144, 255}, {48, 0, 136, 255},
-//            {68, 0, 100, 255}, {92, 0, 48, 255}, {84, 4, 0, 255}, {60, 24, 0, 255},
-//            {32, 42, 0, 255}, {8, 58, 0, 255}, {0, 64, 0, 255}, {0, 60, 0, 255},
-//            {0, 50, 60, 255}, {0, 0, 0, 255}, {0, 0, 0, 255}, {0, 0, 0, 255},
-//            {152, 150, 152, 255}, {8, 76, 196, 255}, {48, 50, 236, 255}, {92, 30, 228, 255},
-//            {136, 20, 176, 255}, {160, 20, 100, 255}, {152, 34, 32, 255}, {120, 60, 0, 255},
-//            {84, 90, 0, 255}, {40, 114, 0, 255}, {8, 124, 0, 255}, {0, 118, 40, 255},
-//            {0, 102, 120, 255}, {0, 0, 0, 255}, {0, 0, 0, 255}, {0, 0, 0, 255},
-//            {236, 238, 236, 255}, {76, 154, 236, 255}, {120, 124, 236, 255}, {176, 98, 236, 255},
-//            {228, 84, 236, 255}, {236, 88, 180, 255}, {236, 106, 100, 255}, {212, 136, 32, 255},
-//            {160, 170, 0, 255}, {116, 196, 0, 255}, {76, 208, 32, 255}, {56, 204, 108, 255},
-//            {56, 180, 204, 255}, {60, 60, 60, 255}, {0, 0, 0, 255}, {0, 0, 0, 255},
-//            {236, 238, 236, 255}, {168, 204, 236, 255}, {188, 188, 236, 255}, {212, 178, 236, 255},
-//            {236, 174, 236, 255}, {236, 174, 212, 255}, {236, 180, 176, 255}, {228, 196, 144, 255},
-//            {204, 210, 120, 255}, {180, 222, 120, 255}, {168, 226, 144, 255}, {152, 226, 180, 255},
-//            {160, 214, 228, 255}, {160, 162, 160, 255}, {0, 0, 0, 255}, {0, 0, 0, 255}  };
-//}
-
 
 // how to use
 // commandline: nes <rom>
@@ -391,8 +319,11 @@ int main(int argc, char ** argv){
     float elapsedTime = 0;
     clock_t start, end;
 
+    Util::Time::Timestamp startTime;
+
     update();
     while (true) {
+        startTime = Util::Time::getSystemTime();
         auto keyCode = Util::System::in.read();
         elapsedTime = (float)(end - start) / CLOCKS_PER_SEC;
         start = clock();
@@ -401,10 +332,10 @@ int main(int argc, char ** argv){
         Util::Io::Key key = keyDecoder.getCurrentKey();
 
         nesBus.controller[0] = 0x00;
-        nesBus.controller[0] |= (key.isPressed() && key.getScancode() == Util::Io::Key::X) ? 0x80 : 0x00;
-        nesBus.controller[0] |= (key.isPressed() && key.getScancode() == Util::Io::Key::E) ? 0x40 : 0x00;
-        nesBus.controller[0] |= (key.isPressed() && key.getScancode() == Util::Io::Key::A) ? 0x20 : 0x00;
-        nesBus.controller[0] |= (key.isPressed() && key.getScancode() == Util::Io::Key::S) ? 0x10 : 0x00;
+        nesBus.controller[0] |= (key.isPressed() && key.getScancode() == Util::Io::Key::X) ? 0x80 : 0x00; // A
+        nesBus.controller[0] |= (key.isPressed() && key.getScancode() == Util::Io::Key::E) ? 0x40 : 0x00; // B
+        nesBus.controller[0] |= (key.isPressed() && key.getScancode() == Util::Io::Key::A) ? 0x20 : 0x00; // select
+        nesBus.controller[0] |= (key.isPressed() && key.getScancode() == Util::Io::Key::S) ? 0x10 : 0x00; // start
         nesBus.controller[0] |= (key.isPressed() && key.getScancode() == Util::Io::Key::UP) ? 0x08 : 0x00;
         nesBus.controller[0] |= (key.isPressed() && key.getScancode() == Util::Io::Key::DOWN) ? 0x04 : 0x00;
         nesBus.controller[0] |= (key.isPressed() && key.getScancode() == Util::Io::Key::LEFT) ? 0x02 : 0x00;
@@ -428,6 +359,16 @@ int main(int argc, char ** argv){
         }
         bLFB->flush();
         end = clock();
+
+        fpsCounter++;
+        auto frameTime = Util::Time::getSystemTime() - startTime;
+        fpsTimer += frameTime;
+
+//        if (fpsTimer >= Util::Time::Timestamp::ofSeconds(1)) {
+//            fps = fpsCounter;
+//            fpsCounter = 0;
+//            fpsTimer.reset();
+//        }
     }
     // clean up
     delete lfb;
