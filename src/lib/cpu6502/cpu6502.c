@@ -86,7 +86,7 @@ void cpuClock(cpu6502* cpu) {
     cpu->cycles--;
 }
 
-void reset(cpu6502* cpu) {
+void cpuReset(cpu6502* cpu) {
     cpu->A = 0;
     cpu->X = 0;
     cpu->Y = 0;

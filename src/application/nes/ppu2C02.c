@@ -120,6 +120,34 @@ void ppuDestroy(ppu2C02* ppuIn){
     freeImage(ppuIn->image_patternTable[1]);
 }
 
+void ppuReset(ppu2C02* ppuIn){
+    ppuIn->scanline = 0;
+    ppuIn->cycle = 0;
+    ppuIn->frameComplete = false;
+
+    ppuIn->nmi = false;
+
+    ppuIn->adress_latch = 0x00;
+    ppuIn->ppu_data_buffer = 0x00;
+    ppuIn->vRamAddr.reg = 0x0000;
+    ppuIn->tRamAddr.reg = 0x0000;
+
+    ppuIn->status.reg = 0x00;
+    ppuIn->mask.reg = 0x00;
+    ppuIn->control.reg = 0x00;
+
+    ppuIn->bgNextTileId = 0x00;
+    ppuIn->bgNextTileAttrib = 0x00;
+    ppuIn->bgNextTileLsb = 0x00;
+    ppuIn->bgNextTileMsb = 0x00;
+
+    ppuIn->bgShifterPatternLo = 0x0000;
+    ppuIn->bgShifterPatternHi = 0x0000;
+    ppuIn->bgShifterAttribLo = 0x0000;
+    ppuIn->bgShifterAttribHi = 0x0000;
+
+}
+
 uint8_t ppuCpuRead(ppu2C02* ppuIn, uint16_t addr, int readOnly){
     uint8_t data = 0x00;
 
@@ -324,7 +352,7 @@ void connectCartridge(ppu2C02* ppuIn, cartridge* cart){
     ppuIn->cart = cart;
 }
 
-void incrementScrollX(ppu2C02* ppu)
+static inline void incrementScrollX(ppu2C02* ppu)
 {
     // when rendering is enabled
     if (ppu->mask.render_background || ppu->mask.render_sprites)
@@ -343,7 +371,7 @@ void incrementScrollX(ppu2C02* ppu)
     }
 }
 
-void incrementScrollY(ppu2C02* ppu){
+static inline void incrementScrollY(ppu2C02* ppu){
     // when rendering is enabled
     if (ppu->mask.render_background || ppu->mask.render_sprites)
     {
@@ -374,7 +402,7 @@ void incrementScrollY(ppu2C02* ppu){
     }
 }
 
-void resetAddressX(ppu2C02* ppu){
+static inline void resetAddressX(ppu2C02* ppu){
     // when rendering is enabled
     if (ppu->mask.render_background || ppu->mask.render_sprites)
     {
@@ -383,7 +411,7 @@ void resetAddressX(ppu2C02* ppu){
     }
 }
 
-void resetAddressY(ppu2C02* ppu){
+static inline void resetAddressY(ppu2C02* ppu){
     // when rendering is enabled
     if (ppu->mask.render_background || ppu->mask.render_sprites)
     {
@@ -393,7 +421,7 @@ void resetAddressY(ppu2C02* ppu){
     }
 }
 
-void loadBackgroundShifters(ppu2C02* ppu){
+static inline void loadBackgroundShifters(ppu2C02* ppu){
     ppu->bgShifterPatternLo = (ppu->bgShifterPatternLo & 0xFF00) | ppu->bgNextTileLsb;
     ppu->bgShifterPatternHi = (ppu->bgShifterPatternHi & 0xFF00) | ppu->bgNextTileMsb;
 
@@ -401,7 +429,7 @@ void loadBackgroundShifters(ppu2C02* ppu){
     ppu->bgShifterAttribHi = (ppu->bgShifterAttribHi & 0xFF00) | ((ppu->bgNextTileAttrib & 0x02) ? 0xFF : 0x00);
 }
 
-void updateShifters(ppu2C02* ppu){
+static inline void updateShifters(ppu2C02* ppu){
     if(ppu->mask.render_background){
         ppu->bgShifterPatternLo <<= 1;
         ppu->bgShifterPatternHi <<= 1;
@@ -423,7 +451,7 @@ void updateShifters(ppu2C02* ppu){
 }
 
 // stackoverflow.com/questions/2602823/in-c-c-whats-the-simplest-way-to-reverse-the-order-of-bits-in-a-byte
-uint8_t flipByte(uint8_t b){
+static inline uint8_t flipByte(uint8_t b){
     b = (b & 0xF0) >> 4 | (b & 0x0F) << 4;
     b = (b & 0xCC) >> 2 | (b & 0x33) << 2;
     b = (b & 0xAA) >> 1 | (b & 0x55) << 1;

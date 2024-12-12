@@ -92,8 +92,15 @@ void insertCartridge(bus_nes* b, cartridge* cart) {
 }
 
 void busReset(bus_nes* b) {
-    reset(b->cpu);
+    cpuReset(b->cpu);
+    ppuReset(b->ppu);
     b->clockCount = 0;
+    b->dmaPage = 0x00;
+    b->dmaAddr = 0x00;
+    b->dmaData = 0x00;
+    b->dmaTransfer = false;
+    b->dmaDummy = true;
+
 }
 
 void busClock(bus_nes* b) {

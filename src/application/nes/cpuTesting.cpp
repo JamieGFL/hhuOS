@@ -22,11 +22,26 @@
 #include "lib/util/time/Timestamp.h"
 #include <time.h>
 #include <cstdio>
+#define SAMPLE_SIZE 200
 
 auto lfb = (Util::Graphic::LinearFrameBuffer*)nullptr;
 auto bLFB = (Util::Graphic::BufferedLinearFrameBuffer*)nullptr;
 auto pixelDrawer = (Util::Graphic::PixelDrawer*)nullptr;
 auto stringDrawer = (Util::Graphic::StringDrawer*)nullptr;
+
+// timing
+static uint64_t lastFrameTime;
+static uint64_t lastClockCycleTime;
+static uint64_t lastClockCycleTime2;
+static Util::Time::Timestamp clockCyclesTime;
+static float ppuTime = 0;
+static float cpuTime = 0;
+static uint8_t sampleCountCPU = 0;
+static uint8_t sampleCountPPU = 0;
+static float totalPPUTime = 0;
+static float totalCPUTime = 0;
+bool gotData = false;
+auto startClock = Util::Time::Timestamp();
 
 // nes
 static  bus_nes nesBus;
@@ -34,6 +49,7 @@ static bus b;
 static cartridge cart;
 bool running = false;
 float timeLeft = 0.0f;
+int scale = 1;
 
 Util::Time::Timestamp fpsTimer;
 uint32_t fpsCounter = 0;
@@ -70,6 +86,10 @@ void run(float elapsedTime);
 void processAdvanceInputs(Util::Io::KeyDecoder &keyDecoder, int16_t keyCode, const Util::Io::Key &key);
 
 void processUtilityInputs(const Util::Io::Key &key);
+
+void drawOAM();
+
+void drawNametableIDs();
 
 static Util::String hex(uint32_t intValue, uint8_t length){
     Util::String hexstring("00000000");
@@ -169,56 +189,101 @@ void drawInstructions(int x, int y, int nLines){
     }
 }
 
-extern "C" void drawFrame(uint8_t* frame){
-    for(int i = 0; i < 256; i++){
-        for(int j = 0; j < 240; j++){
-            uint8_t p = frame[i * 240 + j];
-            pixelDrawer->drawPixel( j * 2 , i * 2, paletteScreen[p]);
-        }
-    }
-}
+//extern "C" void drawFrame(uint8_t* frame){
+//    for(int i = 0; i < 256; i++){
+//        for(int j = 0; j < 240; j++){
+//            uint8_t p = frame[i * 240 + j];
+//            pixelDrawer->drawPixel( j * 2 , i * 2, paletteScreen[p]);
+//        }
+//    }
+//}
 
 void drawImage(int x, int y, int width, int height, image* img, int scale = 1){
-
     for (int i = 0; i < height; ++i) {
         for (int j = 0; j < width; ++j) {
             uint8_t p = getImagePixel(img, j, i);
-            //Util::Graphic::Color color(img->data[i * width + j].r, img->data[i * width + j].g, img->data[i * width + j].b, img->data[i * width + j].a);
                     pixelDrawer->drawPixel(x + j, y + i , paletteScreen[p]);
 
         }
     }
 }
 
-void drawFrame(int x, int y, int width, int height, image* img, int scale = 1){
+// draw Timing data on the right side of the screen
+void drawTimingData() {
+    Util::Graphic::Color textColor(255, 255, 255); // White color for text
 
-    for (int i = 0; i < height; ++i) {
-        for (int j = 0; j < width; ++j) {
-            //int8_t p = getImagePixel(img, j, i);
-            //Util::Graphic::Color color(img->data[i * width + j].r, img->data[i * width + j].g, img->data[i * width + j].b, img->data[i * width + j].a);
-            pixelDrawer->drawPixel(x + j, y + i , paletteScreen[nesBus.ppu->screen->data[i * width + j]]);
+    drawText(Util::String("Draw Time: ") + Util::String::format("%d", lastFrameTime) + Util::String(" ms"), 540, 2, textColor);
+    drawText(Util::String("NES Clock Cycle Time: ") + Util::String::format("%d", lastClockCycleTime) + Util::String(" ms"), 540, 12, textColor);
+    // both combined
+    drawText(Util::String("Total Time: ") + Util::String::format("%d", lastFrameTime + lastClockCycleTime) + Util::String(" ms"), 540, 22, textColor);
+    //drawText(Util::String("PPU Time: ") + Util::String::format("%d", ppuTime) + Util::String(" ms"), 540, 32, textColor);
+    //drawText(Util::String("CPU Time: ") + Util::String::format("%d", cpuTime) + Util::String(" ms"), 540, 42, textColor);
+
+    // lastClockCycleTime 2
+    //drawText(Util::String("Clock Cycle Time 2: ") + Util::String::format("%d", lastClockCycleTime2) + Util::String(" ms"), 540, 52, textColor);
+}
+
+
+void drawFrame(int x, int y, int width, int height, image* img){
+    uint64_t start = Util::Time::getSystemTime().toMilliseconds();
+    if(scale == 1) {
+        for (int i = 0; i < height; ++i) {
+            for (int j = 0; j < width; ++j) {
+                pixelDrawer->drawPixel(x + j, y + i, paletteScreen[nesBus.ppu->screen->data[i * width + j]]);
+            }
+        }
+    }
+    // with scale
+    else {
+        for (int i = 0; i < height; ++i) {
+            for (int j = 0; j < width; ++j) {
+                for (int k = 0; k < scale; ++k) {
+                    for (int l = 0; l < scale; ++l) {
+                        pixelDrawer->drawPixel(x + j * scale + k, y + i * scale + l,
+                                               paletteScreen[nesBus.ppu->screen->data[i * width + j]]);
+                    }
+                }
+            }
+        }
+    }
+
+    drawTimingData();
+
+    bLFB->flush();
+
+    lastFrameTime = Util::Time::getSystemTime().toMilliseconds() - start;
+}
+
+void update() {
+    bLFB->clear();
+    // Draw
+    // drawCPU(540, 2);
+
+    drawInstructions(540, 72, 26);
+
+    // draw fps
+    drawText(Util::String("FPS: ") + Util::String::format("%d", fps), 0, 0, Util::Graphic::Colors::WHITE);
+
+    // draw screen
+    drawFrame(0, 20, 256, 240, getScreenImage(&nesBus));
+}
+
+void drawNametableIDs() {
+    for (int i = 0; i < 500; ++i) {
+        for (int j = 0; j < 520; ++j) {
+            pixelDrawer->drawPixel(j, i, clearColor);
+        }
+    }
+
+    for (uint8_t y = 0; y < 30; y++) {
+        for (uint8_t x = 0; x < 32; x++) {
+            drawText(hex((uint32_t) nesBus.ppu->nametable[0][y * 32 + x], 2), x * 16, y * 16,
+                     Util::Graphic::Colors::WHITE);
         }
     }
 }
 
-void update(){
-    bLFB->clear();
-
-    // Fill the entire screen with dark green
-//    for (int y = 0; y < 700; ++y) {
-//        for (int x = 0; x < 800; ++x) {
-//            pixelDrawer->drawPixel(x, y, clearColor);
-//        }
-//    }
-    // Draw
-    //drawRAM( 8, 2, 0x0000, 16, 16, stringDrawer, pixelDrawer);
-    //drawRAM( 8, 172, 0x8000, 16, 16, stringDrawer, pixelDrawer);
-    drawCPU( 540, 2);
-
-    // x 454, y 72
-    //drawInstructions(540, 72, 26);
-
-    // draw first 26 entries of the OAM
+void drawOAM() {
     for (int i = 0; i < 26; ++i) {
         Util::String line = hex(i, 2) + Util::String(": (")
                 + Util::String::format("%d", nesBus.ppu->oamPointer[i * 4 + 3]) + Util::String(", ")
@@ -227,42 +292,6 @@ void update(){
                 + Util::String(" AT: ") + hex(nesBus.ppu->oamPointer[i * 4 + 2], 2);
         drawText(line, 540, 72 + i * 10, Util::Graphic::Colors::WHITE);
     }
-
-    // visualize pattern table
-    drawImage(540, 350, 128, 128, getPatternTableImage(nesBus.ppu, 0, palette), 1);
-    drawImage(672, 350, 128, 128, getPatternTableImage(nesBus.ppu, 1, palette), 1);
-
-    // draw screen
-    drawFrame(0, 20, 256, 240, getScreenImage(&nesBus), 2);
-
-    // draw fps
-    drawText(Util::String("FPS: ") + Util::String::format("%d", fps), 0, 0, Util::Graphic::Colors::WHITE);
-
-    // draw nametable ids
-//    for (int i = 0; i < 500; ++i) {
-//        for (int j = 0; j < 520; ++j) {
-//            pixelDrawer->drawPixel( j, i, clearColor);
-//        }
-//    }
-//
-//    for(uint8_t y = 0; y < 30; y++){
-//        for(uint8_t x = 0; x < 32; x++){
-//            drawText(hex((uint32_t)nesBus.ppu->nametable[0][y * 32 + x], 2), x * 16, y * 16, Util::Graphic::Colors::WHITE, stringDrawer);
-//        }
-    }
-//};
-
-// load with string of hex values
-uint32_t load_program(const Util::String &program, uint16_t nOffset) {
-
-    // Split the program string by spaces
-    Util::Array<Util::String> tokens = program.split(" ");
-
-    for (uint32_t i = 0; i < tokens.length(); i++) {
-        // Convert each token from hex string to uint8_t and store in RAM
-        nesBus.busBase->ram[nOffset++] = (uint8_t)Util::String::parseHexInt(tokens[i]);
-    }
-    return tokens.length();
 }
 
 // how to use
@@ -300,8 +329,8 @@ int main(int argc, char ** argv){
     //disassembly
     instructions = disassemble(0x0000, 0xFFFF, nesBus.busBase);
 
-    // reset cpu
-    reset(nesBus.cpu);
+    // reset bus
+    busReset(&nesBus);
 
     Util::Io::File lfbFile("/device/lfb");
 
@@ -317,18 +346,16 @@ int main(int argc, char ** argv){
     Util::Io::KeyDecoder keyDecoder(new Util::Io::DeLayout());
 
     float elapsedTime = 0;
-    clock_t start, end;
 
     Util::Time::Timestamp startTime;
 
+    Util::Time::Timestamp start = Util::Time::getSystemTime();
     update();
     while (true) {
-        startTime = Util::Time::getSystemTime();
+        auto currentTime = Util::Time::getSystemTime();
+        elapsedTime = (float)(currentTime - start).toMilliseconds();
+
         auto keyCode = Util::System::in.read();
-        elapsedTime = (float)(end - start) / CLOCKS_PER_SEC;
-        start = clock();
-
-
         Util::Io::Key key = keyDecoder.getCurrentKey();
 
         nesBus.controller[0] = 0x00;
@@ -358,17 +385,16 @@ int main(int argc, char ** argv){
             break;
         }
         bLFB->flush();
-        end = clock();
 
         fpsCounter++;
-        auto frameTime = Util::Time::getSystemTime() - startTime;
+        auto frameTime = Util::Time::getSystemTime() - currentTime;
         fpsTimer += frameTime;
 
-//        if (fpsTimer >= Util::Time::Timestamp::ofSeconds(1)) {
-//            fps = fpsCounter;
-//            fpsCounter = 0;
-//            fpsTimer.reset();
-//        }
+        if (fpsTimer >= Util::Time::Timestamp::ofSeconds(1)) {
+            fps = fpsCounter;
+            fpsCounter = 0;
+            fpsTimer.reset();
+        }
     }
     // clean up
     delete lfb;
@@ -384,12 +410,20 @@ void processUtilityInputs(const Util::Io::Key &key) {
         running = true;
     }
     if(key.isPressed() && key.getScancode() == Util::Io::Key::R){
-        reset(nesBus.cpu);
+        busReset(&nesBus);
         update();
     }
     if(key.isPressed() && key.getScancode() == Util::Io::Key::Q){
         (++palette) &= 0x07;
     }
+    // scale
+    if(key.isPressed() && key.getScancode() == Util::Io::Key::PLUS){
+        scale++;
+    }
+    if(key.isPressed() && key.getScancode() == Util::Io::Key::MINUS){
+        if(scale > 1) { scale--; }
+    }
+
 }
 
 void processAdvanceInputs(Util::Io::KeyDecoder &keyDecoder, int16_t keyCode, const Util::Io::Key &key) {
@@ -417,14 +451,15 @@ void processAdvanceInputs(Util::Io::KeyDecoder &keyDecoder, int16_t keyCode, con
 }
 
 void run(float elapsedTime) {
-    if(timeLeft > 0.0f){
+    if (timeLeft > 0.0f) {
         timeLeft -= elapsedTime;
     } else {
         timeLeft += (1.0f / 60.0f) - elapsedTime;
+        uint64_t start = Util::Time::getSystemTime().toMilliseconds();
         do (busClock(&nesBus)); while (!frameComplete(&nesBus));
+        lastClockCycleTime = Util::Time::getSystemTime().toMilliseconds() - start;
         setFrameComplete(&nesBus, false);
         update();
     }
 }
-
 
