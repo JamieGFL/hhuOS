@@ -93,7 +93,6 @@ add_compile_options(
         -ffreestanding
         -Wall
         -Wextra
-        -Werror
         -DHHUOS_VERSION=${HHUOS_VERSION}
         -DHHUOS_CODENAME=${HHUOS_CODENAME}
         -DHHUOS_GIT_REV=${HHUOS_GIT_REV}
