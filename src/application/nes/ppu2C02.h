@@ -156,6 +156,8 @@ extern "C" {
 void ppuInit(ppu2C02* ppuIn);
 void ppuDestroy(ppu2C02* ppuIn);
 
+void ppuReset(ppu2C02* ppuIn);
+
 // writes to and reads from main bus
 uint8_t ppuCpuRead(ppu2C02* ppuIn, uint16_t addr, int readOnly);
 void ppuCpuWrite(ppu2C02* ppuIn, uint16_t addr, uint8_t val);
