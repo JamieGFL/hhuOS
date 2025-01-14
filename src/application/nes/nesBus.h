@@ -1,5 +1,5 @@
-#ifndef HHUOS_BUS_NES_H
-#define HHUOS_BUS_NES_H
+#ifndef HHUOS_NESBUS_H
+#define HHUOS_NESBUS_H
 
 #include <stdint.h>
 #include "lib/cpu6502/cpu6502.h"
@@ -35,20 +35,28 @@ typedef struct {
 extern "C" {
 #endif
 
+// Initialize the NES bus
 void bInit(bus_nes* b, bus* bus, cpu6502* cpu, ppu2C02* ppu);
-void bDestroy(bus_nes* b);
 
+// Set static bus
 void setBus(bus_nes *b);
 
-void nes_bus_Write(bus* b, uint16_t addr, uint8_t val);
-uint8_t nes_bus_Read(bus* b, uint16_t addr, int readOnly);
+// Write to memory through bus
+void nesBusWrite(bus* b, uint16_t addr, uint8_t val);
 
+// Read from memory through bus
+uint8_t nesBusRead(bus* b, uint16_t addr, int readOnly);
 
+// Insert cartridge into NES bus
 void insertCartridge(bus_nes* b, cartridge* cart);
 
+// Reset NES
 void busReset(bus_nes* b);
 
+// Clock the NES
 void busClock(bus_nes* b);
+
+// Utility
 
 image* getScreenImage(bus_nes* b);
 bool frameComplete(bus_nes* b);
@@ -58,4 +66,4 @@ void setFrameComplete(bus_nes* b, bool complete);
 #endif
 
 
-#endif //HHUOS_BUS_NES_H
+#endif //HHUOS_NESBUS_H

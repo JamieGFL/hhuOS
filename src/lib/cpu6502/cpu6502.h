@@ -5,9 +5,9 @@
 #include "bus_interface.h"
 
 #define MAX_INSTRUCTION_LENGTH 64
-#define MAP_LENGTH (64 * 1024) // 64KB
+#define MAP_LENGTH (64 * 1024)
 
-// bits of the status register
+// Bits of the status register
 typedef enum
 {
     C_FLAG = (1 << 0), // Carry Bit
@@ -43,41 +43,30 @@ typedef struct cpu6502 {
 extern "C" {
 #endif
 
+// Initialize the CPU
 void cInit(cpu6502* cpu);
 
-void cDestroy(cpu6502* cpu);
-
+// Connect the CPU to the bus
 void connectBus(cpu6502* cpu, bus* b);
 
-// write to memory through bus
+// Write to memory through bus
 uint8_t cRead(cpu6502* cpu, uint16_t addr);
 
-// read from memory through bus
+// Read from memory through bus
 void cWrite(cpu6502* cpu, uint16_t addr, uint8_t val);
 
-void cpuClock(cpu6502* cpu); // Clock function for clock cycles to occur
+void cpuClock(cpu6502* cpu); // Simulates a clock cycle of the CPU
 void cpuReset(cpu6502* cpu); // Reset Signal
 void irq(cpu6502* cpu); // Interrupt Request Signal
 void nmi(cpu6502* cpu); // Non-Maskable Interrupt Request Signal
 
 uint8_t fetchData(cpu6502* cpu); // Fetches data from memory
 
-
-
-// get flag from status register
+// Get flag from status register
 uint8_t getFlag(cpu6502* cpu, CPUFLAGS flag);
 
-// set flag in status register
+// Set flag in status register
 void setFlag(cpu6502* cpu, CPUFLAGS flag, int val);
-
-typedef struct
-{
-    char name[4]; // Name of the instruction
-    uint8_t (*operation)(cpu6502* cpu); // = nullptr; // Function pointer to the operation
-    uint8_t (*addressmode)(cpu6502* cpu); // = nullptr; // Function pointer to the address mode
-    uint8_t cycles; // Number of cycles the instruction requires
-} instruction;
-
 
 // Addressing Modes
 uint8_t IMP(cpu6502 * cpu);
@@ -108,6 +97,13 @@ uint8_t TAX(cpu6502* cpu); uint8_t TAY(cpu6502* cpu); uint8_t TSX(cpu6502* cpu);
 uint8_t TYA(cpu6502* cpu); uint8_t XXX(cpu6502* cpu);
 
 // Utility
+typedef struct
+{
+    char name[4]; // Name of the instruction
+    uint8_t (*operation)(cpu6502* cpu); // = nullptr; // Function pointer to the operation
+    uint8_t (*addressmode)(cpu6502* cpu); // = nullptr; // Function pointer to the address mode
+    uint8_t cycles; // Number of cycles the instruction requires
+} instruction;
 
 typedef struct {
     uint16_t address;
@@ -120,8 +116,10 @@ typedef struct {
     int capacity;
 } Instruction_Map;
 
+// Checks if the CPu has finished executing the current instruction
 int complete(cpu6502* cpu);
 
+// Disassembles the code in the specified range
 Instruction_Map disassemble(uint16_t nStart, uint16_t nStop, bus *bus);
 
 #ifdef __cplusplus

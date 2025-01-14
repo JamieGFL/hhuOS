@@ -41,10 +41,10 @@ void cartridgeInit(cartridge* cartridgeIn, const char* filename){
         fseek(file, 512, SEEK_CUR);
     }
 
-    cartridgeIn->cMirror = HORIZONTAL;
+    cartridgeIn->mirrorMode = HORIZONTAL;
 
-    cartridgeIn->cMapperId = ((header.mapper2 >> 4) << 4) | (header.mapper1 >> 4);
-    cartridgeIn->cMirror = (header.mapper1 & 0x01) ? VERTICAL : HORIZONTAL;
+    cartridgeIn->mapperID = ((header.mapper2 >> 4) << 4) | (header.mapper1 >> 4);
+    cartridgeIn->mirrorMode = (header.mapper1 & 0x01) ? VERTICAL : HORIZONTAL;
 
     uint8_t fileType = 1;
     if(fileType == 0){
@@ -67,9 +67,9 @@ void cartridgeInit(cartridge* cartridgeIn, const char* filename){
     }
 
     // load mapper
-    switch(cartridgeIn->cMapperId){
+    switch(cartridgeIn->mapperID){
         case 0: {
-            mapperInit(cartridgeIn->map, cartridgeIn->cPRGBanks, cartridgeIn->cCHRBanks);
+            mapper000Init(cartridgeIn->map, cartridgeIn->cPRGBanks, cartridgeIn->cCHRBanks);
             break;
         }
     }
@@ -99,9 +99,9 @@ int cartCpuWrite(cartridge* cart, uint16_t addr, uint8_t val){
     }
 }
 
-int cartPpuRead(ppu2C02* ppuIn, cartridge* cart, uint16_t addr, uint8_t* data){
+int cartPpuRead(cartridge* cart, uint16_t addr, uint8_t* data){
     uint32_t mappedAddr = 0;
-    if(ppuMapRead(addr, &mappedAddr)){
+    if(ppuMapRead(cart->map, addr, &mappedAddr)){
         *data = cart->chr.data[mappedAddr];
         return 1;
     }
@@ -110,9 +110,9 @@ int cartPpuRead(ppu2C02* ppuIn, cartridge* cart, uint16_t addr, uint8_t* data){
     }
 }
 
-int cartPpUWrite(ppu2C02* ppuIn, cartridge* cart, uint16_t addr, uint8_t val){
+int cartPpUWrite(cartridge* cart, uint16_t addr, uint8_t val){
     uint32_t mappedAddr = 0;
-    if(ppuMapWrite(cart->map, ppuIn, addr, &mappedAddr)){
+    if(ppuMapWrite(cart->map, addr, &mappedAddr)){
         cart->chr.data[mappedAddr] = val;
         return 1;
     }

@@ -2,12 +2,8 @@
 #include "bus_interface.h"
 #include "lib/libc/stdio.h"
 #include "lib/libc/string.h"
-#include <stddef.h>
 
-
-
-
-// Lookup table for instructions in C
+// Lookup table for instructions
 static instruction lookupTable [256]= {
         { "BRK", BRK, IMP, 7 },{ "ORA", ORA, IZX, 6 },{ "???", XXX, IMP, 2 },{ "???", XXX, IMP, 8 },{ "???", NOP, IMP, 3 },{ "ORA", ORA, ZP0, 3 },{ "ASL", ASL, ZP0, 5 },{ "???", XXX, IMP, 5 },{ "PHP", PHP, IMP, 3 },{ "ORA", ORA, IMM, 2 },{ "ASL", ASL, IMP, 2 },{ "???", XXX, IMP, 2 },{ "???", NOP, IMP, 4 },{ "ORA", ORA, ABS, 4 },{ "ASL", ASL, ABS, 6 },{ "???", XXX, IMP, 6 },
         { "BPL", BPL, REL, 2 },{ "ORA", ORA, IZY, 5 },{ "???", XXX, IMP, 2 },{ "???", XXX, IMP, 8 },{ "???", NOP, IMP, 4 },{ "ORA", ORA, ZPX, 4 },{ "ASL", ASL, ZPX, 6 },{ "???", XXX, IMP, 6 },{ "CLC", CLC, IMP, 2 },{ "ORA", ORA, ABY, 4 },{ "???", NOP, IMP, 2 },{ "???", XXX, IMP, 7 },{ "???", NOP, IMP, 4 },{ "ORA", ORA, ABX, 4 },{ "ASL", ASL, ABX, 7 },{ "???", XXX, IMP, 7 },
@@ -58,7 +54,7 @@ void cWrite(cpu6502* cpu, uint16_t addr, uint8_t val) {
 }
 
 uint8_t getFlag(cpu6502* cpu, CPUFLAGS flag) {
-    return (cpu->status & flag) > 0; // if stuff doesn't work, do ? 1 : 0 here
+    return (cpu->status & flag) > 0;
 }
 
 void setFlag(cpu6502* cpu, CPUFLAGS flag, int val) {
@@ -68,7 +64,6 @@ void setFlag(cpu6502* cpu, CPUFLAGS flag, int val) {
         cpu->status &= ~flag;
     }
 }
-
 
 
 void cpuClock(cpu6502* cpu) {
@@ -243,7 +238,6 @@ uint8_t IND(cpu6502* cpu) {
     return 0;
 }
 
-// 8-bit address offset by X register used read from page 0x00, reading the actual 16-bit address from that address
 
 uint8_t IZX(cpu6502* cpu) {
     uint16_t base_addr = cRead(cpu, cpu->PC);
@@ -285,6 +279,7 @@ uint8_t REL(cpu6502* cpu) {
 
 // Instructions
 
+// Fetch data from memory
 uint8_t fetchData(cpu6502* cpu) {
     if (lookupTable[cpu->opcode].addressmode != IMP) {
         cpu->fetched = cRead(cpu, cpu->addr_abs);
@@ -812,7 +807,6 @@ uint8_t BRK(cpu6502* cpu) {
 // ----------------------------------
 
 // No operation
-
 uint8_t NOP(cpu6502* cpu) {
 
     // NOPs for unofficial opcodes could be added here
@@ -929,12 +923,9 @@ uint8_t XXX(cpu6502* cpu) {
 }
 
 
-
-
 // Utility
 
 // ----------------------------------
-
 
 Instruction_Map createMap() {
     Instruction_Map map;
@@ -947,9 +938,6 @@ Instruction_Map createMap() {
         //entry.instruction = "\0";
     }
     return map;
-}
-
-void destroyMap() {
 }
 
 void addInstruction(Instruction_Map *map, uint16_t address,char *instruction) {
@@ -988,9 +976,7 @@ Instruction_Map disassemble(uint16_t nStart, uint16_t nStop, bus *bus) {
         strncat(sInst, lookupTable[opcode].name, sizeof(sInst) - strlen(sInst) - 1); // Append instruction name
         strncat(sInst, " ", sizeof(sInst) - strlen(sInst) - 1);
 
-        // Get operands based on addressing mode in C
-
-
+        // Get operands based on addressing mode
         if (lookupTable[opcode].addressmode == &IMP) {
             strncat(sInst, "{IMP}", sizeof(sInst) - strlen(sInst) - 1);
         }
@@ -1080,7 +1066,6 @@ Instruction_Map disassemble(uint16_t nStart, uint16_t nStop, bus *bus) {
 
         // Add the formed instruction string to the map
         addInstruction(&map, line_addr, sInst);
-
     }
 
     return map;

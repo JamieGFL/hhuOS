@@ -15,7 +15,6 @@ typedef struct pixel {
     uint8_t a;
 } pixel;
 
-
 typedef struct image {
     int32_t width;
     int32_t height;
@@ -41,7 +40,8 @@ typedef struct ppu2C02 {
     // image
     pixel paletteScreen[64];
     image* screen;
-    image* image_nametable[2];
+
+    // pattern table image
     image* image_patternTable[2];
 
     // clock
@@ -51,7 +51,9 @@ typedef struct ppu2C02 {
 
     bool nmi;
 
-    union
+    // registers
+
+    union PPUSTATUS
     {
         struct
         {
@@ -63,7 +65,7 @@ typedef struct ppu2C02 {
         uint8_t reg;
     } status;
 
-    union
+    union PPUMASK
     {
         struct
         {
@@ -79,7 +81,7 @@ typedef struct ppu2C02 {
         uint8_t reg;
     } mask;
 
-    union
+    union PPUCTRL
     {
         struct
         {
@@ -95,8 +97,8 @@ typedef struct ppu2C02 {
         uint8_t reg;
     } control;
 
-    uint8_t adress_latch;
-    uint8_t ppu_data_buffer;
+    uint8_t addressLatch;
+    uint8_t ppuDataBuffer;
 
     union loopyRegister
     {
@@ -138,6 +140,7 @@ typedef struct ppu2C02 {
     uint8_t spriteCount;
     uint8_t spriteShifterPatternLo[8];
     uint8_t spriteShifterPatternHi[8];
+
     // sprite zero hit possible?
     bool spriteZeroHit;
     // sprite zero being rendered?
@@ -154,16 +157,19 @@ extern "C" {
 #endif
 
 void ppuInit(ppu2C02* ppuIn);
-void ppuDestroy(ppu2C02* ppuIn);
 
 void ppuReset(ppu2C02* ppuIn);
 
-// writes to and reads from main bus
+// CPU reads from PPU
 uint8_t ppuCpuRead(ppu2C02* ppuIn, uint16_t addr, int readOnly);
+
+// CPU writes to PPU
 void ppuCpuWrite(ppu2C02* ppuIn, uint16_t addr, uint8_t val);
 
-// writes to and reads from ppu bus
+// Reads from internal ppu bus
 uint8_t ppuRead(ppu2C02* ppuIn, uint16_t addr);
+
+// Writes to internal ppu bus
 void ppuWrite(ppu2C02* ppuIn, uint16_t addr, uint8_t val);
 
 
@@ -177,7 +183,6 @@ void freeImage(image* img);
 uint8_t getImagePixel(image* img, int32_t x, int32_t y);
 
 // Debugging
-
 image* getPatternTableImage(ppu2C02* ppuIn, int index, uint8_t palette);
 
 #ifdef __cplusplus

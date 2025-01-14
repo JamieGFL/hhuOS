@@ -11,7 +11,7 @@ typedef struct bus {
     uint8_t (*bRead)(struct bus* b, uint16_t addr, int readOnly);
 
     // 2KB RAM
-    uint8_t ram[64 * 1024];
+    uint8_t ram[2048];
 } bus;
 
 void bWrite(bus* b, uint16_t addr, uint8_t val);

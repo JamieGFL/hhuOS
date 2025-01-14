@@ -1,12 +1,9 @@
 #include <string.h>
 #include "ppu2C02.h"
 
+// render helper functions
 static pixel createPixel(uint8_t r, uint8_t g, uint8_t b, uint8_t a);
-static int pixelEquals(pixel p1, pixel p2);
-
 static image* createImage(int32_t width, int32_t height);
-void freeImage(image* img);
-
 static int setImagePixel(image* img, int32_t x, int32_t y, uint8_t p);
 uint8_t getImagePixel(image* img, int32_t x, int32_t y);
 
@@ -82,8 +79,6 @@ void ppuInit(ppu2C02* ppuIn){
     ppuIn->paletteScreen[0x3F] = createPixel(0, 0, 0, 255);
 
     ppuIn->screen = createImage(256, 240);
-    ppuIn->image_nametable[0] = createImage(256, 240);
-    ppuIn->image_nametable[1] = createImage(256, 240);
     ppuIn->image_patternTable[0] = createImage(128, 128);
     ppuIn->image_patternTable[1] = createImage(128, 128);
 
@@ -93,8 +88,8 @@ void ppuInit(ppu2C02* ppuIn){
 
     ppuIn->nmi = false;
 
-    ppuIn->adress_latch = 0x00;
-    ppuIn->ppu_data_buffer = 0x00;
+    ppuIn->addressLatch = 0x00;
+    ppuIn->ppuDataBuffer = 0x00;
     ppuIn->vRamAddr.reg = 0x0000;
     ppuIn->tRamAddr.reg = 0x0000;
 
@@ -112,23 +107,14 @@ void ppuInit(ppu2C02* ppuIn){
     ppuIn->oamAddress = 0x00;
 }
 
-void ppuDestroy(ppu2C02* ppuIn){
-    freeImage(ppuIn->screen);
-    freeImage(ppuIn->image_nametable[0]);
-    freeImage(ppuIn->image_nametable[1]);
-    freeImage(ppuIn->image_patternTable[0]);
-    freeImage(ppuIn->image_patternTable[1]);
-}
-
 void ppuReset(ppu2C02* ppuIn){
     ppuIn->scanline = 0;
     ppuIn->cycle = 0;
-    ppuIn->frameComplete = false;
 
-    ppuIn->nmi = false;
+    ppuIn->addressLatch = 0x00;
+    ppuIn->ppuDataBuffer = 0x00;
+    ppuIn->fineX = 0x00;
 
-    ppuIn->adress_latch = 0x00;
-    ppuIn->ppu_data_buffer = 0x00;
     ppuIn->vRamAddr.reg = 0x0000;
     ppuIn->tRamAddr.reg = 0x0000;
 
@@ -151,40 +137,65 @@ void ppuReset(ppu2C02* ppuIn){
 uint8_t ppuCpuRead(ppu2C02* ppuIn, uint16_t addr, int readOnly){
     uint8_t data = 0x00;
 
-    switch(addr){
-        case 0x0000: // Control
-            break;
-        case 0x0001: // Mask
-            break;
-        case 0x0002: // Status
-            data = (ppuIn->status.reg & 0xE0) | (ppuIn->ppu_data_buffer & 0x1F);
-            ppuIn->status.vertical_blank = 0;
-            ppuIn->adress_latch = 0;
-            break;
-        case 0x0003: // OAM Address
-            break;
-        case 0x0004: // OAM Data
-            data = ppuIn->oamPointer[ppuIn->oamAddress];
-            break;
-        case 0x0005: // Scroll
-            break;
-        case 0x0006: // PPU Address
-            break;
-        case 0x0007: // PPU Data
-            data = ppuIn->ppu_data_buffer;
-            ppuIn->ppu_data_buffer = ppuRead(ppuIn, ppuIn->vRamAddr.reg);
+    if(readOnly){
+        switch(addr){
+            case 0x0000: // Control
+                data = ppuIn->control.reg;
+                break;
+            case 0x0001: // Mask
+                data = ppuIn->mask.reg;
+                break;
+            case 0x0002: // Status
+                data = ppuIn->status.reg;
+                break;
+            case 0x0003: // OAM Address
+                break;
+            case 0x0004: // OAM Data
+                break;
+            case 0x0005: // Scroll
+                break;
+            case 0x0006: // PPU Address
+                break;
+            case 0x0007: // PPU Data
+                break;
+        }
+    }
+    else {
+        switch (addr) {
+            case 0x0000: // Control
+                break;
+            case 0x0001: // Mask
+                break;
+            case 0x0002: // Status
+                data = (ppuIn->status.reg & 0xE0) | (ppuIn->ppuDataBuffer & 0x1F);
+                ppuIn->status.vertical_blank = 0;
+                ppuIn->addressLatch = 0;
+                break;
+            case 0x0003: // OAM Address
+                break;
+            case 0x0004: // OAM Data
+                data = ppuIn->oamPointer[ppuIn->oamAddress];
+                break;
+            case 0x0005: // Scroll
+                break;
+            case 0x0006: // PPU Address
+                break;
+            case 0x0007: // PPU Data
+                data = ppuIn->ppuDataBuffer;
+                ppuIn->ppuDataBuffer = ppuRead(ppuIn, ppuIn->vRamAddr.reg);
 
-            if(ppuIn->vRamAddr.reg >= 0x3F00) {
-                data = ppuIn->ppu_data_buffer; }
-            ppuIn->vRamAddr.reg += (ppuIn->control.increment_mode ? 32 : 1);
-            break;
+                if (ppuIn->vRamAddr.reg >= 0x3F00) {
+                    data = ppuIn->ppuDataBuffer;
+                }
+                ppuIn->vRamAddr.reg += (ppuIn->control.increment_mode ? 32 : 1);
+                break;
+        }
     }
 
     return data;
 }
 
 void ppuCpuWrite(ppu2C02* ppuIn, uint16_t addr, uint8_t val){
-
     switch(addr){
         case 0x0000: // Control
             ppuIn->control.reg = val;
@@ -203,27 +214,27 @@ void ppuCpuWrite(ppu2C02* ppuIn, uint16_t addr, uint8_t val){
             ppuIn->oamPointer[ppuIn->oamAddress] = val;
             break;
         case 0x0005: // Scroll
-            if(ppuIn->adress_latch == 0){
+            if(ppuIn->addressLatch == 0){
                 ppuIn->fineX = val & 0x07;
                 ppuIn->tRamAddr.coarse_x = val >> 3;
-                ppuIn->adress_latch = 1;
+                ppuIn->addressLatch = 1;
             }
             else{
                 ppuIn->tRamAddr.fine_y = val & 0x07;
                 ppuIn->tRamAddr.coarse_y = val >> 3;
-                ppuIn->adress_latch = 0;
+                ppuIn->addressLatch = 0;
             }
             break;
         case 0x0006: // PPU Address
-            if(ppuIn->adress_latch == 0){
+            if(ppuIn->addressLatch == 0){
                 ppuIn->tRamAddr.reg = (val << 8) | (ppuIn->tRamAddr.reg & 0x00FF);
-                ppuIn->adress_latch = 1;
+                ppuIn->addressLatch = 1;
 
             }
             else{
                 ppuIn->tRamAddr.reg = (ppuIn->tRamAddr.reg & 0xFF00) | val;
                 ppuIn->vRamAddr = ppuIn->tRamAddr;
-                ppuIn->adress_latch = 0;
+                ppuIn->addressLatch = 0;
 
             }
             break;
@@ -238,7 +249,7 @@ uint8_t ppuRead(ppu2C02* ppuIn, uint16_t addr){
     uint8_t data = 0x00;
     addr &= 0x3FFF;
 
-    if(cartPpuRead(ppuIn, ppuIn->cart, addr, &data)){
+    if(cartPpuRead(ppuIn->cart, addr, &data)){
         // do nothing
     }
     // addr >= 0x0000 && addr <= 0x1FFF
@@ -248,8 +259,7 @@ uint8_t ppuRead(ppu2C02* ppuIn, uint16_t addr){
     // nametable mirroring
     else if(addr >= 0x2000 && addr <= 0x3EFF){
         addr &= 0x0FFF;
-        // vertical
-        if(ppuIn->cart->cMirror == VERTICAL){
+        if(ppuIn->cart->mirrorMode == VERTICAL){
             // addr >= 0x0000 && addr <= 0x1FFF
             if(addr <= 0x03FF){
                 data = ppuIn->nametable[0][addr & 0x03FF];
@@ -264,8 +274,7 @@ uint8_t ppuRead(ppu2C02* ppuIn, uint16_t addr){
                 data = ppuIn->nametable[1][addr & 0x03FF];
             }
         }
-        else if(ppuIn->cart->cMirror == HORIZONTAL){
-            // horizontal
+        else if(ppuIn->cart->mirrorMode == HORIZONTAL){
             // addr >= 0x0000 && addr <= 0x03FF
             if(addr <= 0x03FF){
                 data = ppuIn->nametable[0][addr & 0x03FF];
@@ -280,7 +289,6 @@ uint8_t ppuRead(ppu2C02* ppuIn, uint16_t addr){
                 data = ppuIn->nametable[1][addr & 0x03FF];
             }
         }
-
 
     }
     else if(addr >= 0x3F00 && addr <= 0x3FFF){
@@ -296,7 +304,7 @@ uint8_t ppuRead(ppu2C02* ppuIn, uint16_t addr){
 }
 void ppuWrite(ppu2C02* ppuIn, uint16_t addr, uint8_t val){
     addr &= 0x3FFF;
-    if(cartPpUWrite(ppuIn, ppuIn->cart, addr, val)){
+    if(cartPpUWrite(ppuIn->cart, addr, val)){
         // do nothing
     }
     else if(addr >= 0x0000 && addr <= 0x1FFF){
@@ -305,8 +313,7 @@ void ppuWrite(ppu2C02* ppuIn, uint16_t addr, uint8_t val){
     // nametable mirroring
     else if(addr >= 0x2000 && addr <= 0x3EFF){
         addr &= 0x0FFF;
-        // vertical
-        if(ppuIn->cart->cMirror == VERTICAL){
+        if(ppuIn->cart->mirrorMode == VERTICAL){
             // addr >= 0x0000 && addr <= 0x03FF
             if(addr <= 0x03FF){
                 ppuIn->nametable[0][addr & 0x03FF] = val;
@@ -321,8 +328,7 @@ void ppuWrite(ppu2C02* ppuIn, uint16_t addr, uint8_t val){
                 ppuIn->nametable[1][addr & 0x03FF] = val;
             }
         }
-        // horizontal
-        else if(ppuIn->cart->cMirror == HORIZONTAL){
+        else if(ppuIn->cart->mirrorMode == HORIZONTAL){
             if(addr >= 0x0000 && addr <= 0x03FF){
                 ppuIn->nametable[0][addr & 0x03FF] = val;
             }
@@ -459,7 +465,6 @@ static inline uint8_t flipByte(uint8_t b){
 }
 
 void ppuClock(ppu2C02* ppu) {
-
     if(ppu->scanline >= -1 && ppu->scanline < 240)
     {
         if (ppu->scanline == -1 && ppu->cycle == 1) {
@@ -547,6 +552,7 @@ void ppuClock(ppu2C02* ppu) {
             ppu->status.sprite_overflow = ppu->spriteCount > 8;
         }
 
+        // Sprite Shifter Update
         if(ppu->cycle == 340){
             for (int i = 0; i < ppu->spriteCount; ++i) {
                 uint8_t spritePatternLo, spritePatternHi;
@@ -622,7 +628,6 @@ void ppuClock(ppu2C02* ppu) {
     if(ppu->scanline == 240){
         // do nothing
     }
-
 
 
     // Set vertical blank flag when end of scanline is reached
@@ -746,12 +751,6 @@ static image* createImage(int32_t width, int32_t height){
     }
     return img;
 }
-void freeImage(image* img){
-    if(img) {
-        free(img->data);
-        free(img);
-    }
-}
 
 static int setImagePixel(image* img, int32_t x, int32_t y, uint8_t p){
     if (x >= 0 && x < img->width && y >= 0 && y < img->height) {
@@ -773,8 +772,6 @@ uint8_t getImagePixel(image* img, int32_t x, int32_t y){
 static uint8_t getColorFromPalette(ppu2C02 *ppuIn, uint8_t palette, uint8_t pixel) {
     return ppuRead(ppuIn,0x3F00 + (palette << 2) + pixel) & 0x3F;
 }
-image* getScreenImage(ppu2C02* ppuIn);
-image* getNametableImage(ppu2C02* ppuIn, int index);
 
 image* getPatternTableImage(ppu2C02* ppuIn, int index, uint8_t palette){
     for (int yTile = 0; yTile < 16; ++yTile) {

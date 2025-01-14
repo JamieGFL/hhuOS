@@ -1,6 +1,5 @@
 #ifndef HHUOS_CARTRIDGE_H
 #define HHUOS_CARTRIDGE_H
-#include "lib/cpu6502/cpu6502.h"
 #include "mapper.h"
 
 typedef struct ppu2C02 ppu2C02;
@@ -22,9 +21,9 @@ typedef struct cartridge {
     memoryChunk prg;
     memoryChunk chr;
 
-    uint8_t cMapperId;
+    uint8_t mapperID;
     // mirror
-    mirror cMirror;
+    mirror mirrorMode;
     uint8_t cPRGBanks;
     uint8_t cCHRBanks;
 
@@ -41,13 +40,17 @@ void freeMemory(memoryChunk* mem);
 
 void cartridgeInit(cartridge* cartridgeIn, const char* filename);
 
-// writes to and reads from main bus
+// CPU reads from cartridge
 int cartCpuRead(cartridge* cart, uint16_t addr, uint8_t* data);
+
+// CPU writes to cartridge
 int cartCpuWrite(cartridge* cart, uint16_t addr, uint8_t val);
 
-// writes to and reads from ppu bus
-int cartPpuRead(ppu2C02* ppuIn, cartridge* cart, uint16_t addr, uint8_t* data);
-int cartPpUWrite(ppu2C02* ppuIn, cartridge* cart, uint16_t addr, uint8_t val);
+// PPU reads from cartridge
+int cartPpuRead(cartridge* cart, uint16_t addr, uint8_t* data);
+
+// PPU writes to cartridge
+int cartPpUWrite(cartridge* cart, uint16_t addr, uint8_t val);
 
 #ifdef __cplusplus
 }
