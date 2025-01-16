@@ -267,12 +267,13 @@ void drawUtilityFunctionsStatus(int x, int y) {
     drawText(Util::String("C: Step"), x + 220, y + 42, textColor);
     drawText(Util::String("F: Frame"), x + 220, y + 52, textColor);
     drawText(Util::String("ESC: Exit"), x + 220, y + 62, textColor);
+    drawText(Util::String("NES Inputs: A -> A, B -> E, Select -> X, Start -> S"), x + 220, y + 72, textColor);
+    drawText(Util::String("Arrow Keys for D-pad movement"), x + 220, y + 82, textColor);
 
     drawText(Util::String("Scroll through RAM: F8/F9"), x + 440, y + 22, textColor);
     drawText(Util::String("+: Scale Up"), x + 440, y + 32, textColor);
     drawText(Util::String("-: Scale Down"), x + 440, y + 42, textColor);
     drawText(Util::String("Q: Change Palette"), x + 440, y + 52, textColor);
-
 }
 
 void update() {
@@ -417,8 +418,6 @@ int main(int argc, char ** argv){
     // clean up
     delete lfb;
     delete bLFB;
-    //bDestroy(&nesBus);
-
 
     return 0;
 }
